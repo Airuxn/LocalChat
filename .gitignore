@@ -1,0 +1,29 @@
+# Build outputs
+dist/
+*.apk
+
+# Gradle / Kotlin
+.gradle/
+app/build/
+llama-bro-sdk/build/
+local.properties
+jadx-out/
+llama-bro-sdk-decompiled/
+build/
+
+# Signing (generate locally; never commit real release keys)
+*.keystore
+*.jks
+
+# APK analysis scratch
+.apk-inspect/
+
+# Prompt benchmark downloads (large GGUF files)
+benchmark-models/
+benchmark-results/
+
+# Local maintainer tooling (repo root only)
+/tools/
+
+# Python
+**/__pycache__/

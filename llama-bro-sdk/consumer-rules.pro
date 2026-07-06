@@ -1,0 +1,2 @@
+-keep class com.suhel.llamabro.sdk.engine.internal.** { *; }
+-keepclassmembers class com.suhel.llamabro.sdk.engine.internal.** { *; }

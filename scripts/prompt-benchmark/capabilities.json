@@ -1,0 +1,47 @@
+{
+  "gemma3-1b-it-q4": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "notes": "ChatML — photo via ML Kit inject only; no native tool calling"
+  },
+  "qwen3-1.7b-q4": {
+    "native_tools": ["web_search"],
+    "inject_tools": ["photo_analysis"],
+    "notes": "ChatML + /no_think; candidate for XmlToolFormats web_search"
+  },
+  "llama3.2-3b-q4": {
+    "native_tools": ["web_search"],
+    "inject_tools": ["photo_analysis"],
+    "notes": "Llama 3 template; best native tool-call scores in benchmarks"
+  },
+  "smolvlm2-500m-video-vision": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "vision_native": false,
+    "notes": "VLM weights downloaded; mmproj inference not in app — ML Kit inject"
+  },
+  "smolvlm2-2.2b-vision": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "vision_native": false
+  },
+  "gemma3-4b-vision": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "vision_native": false
+  },
+  "dolphin3-llama3.2-1b-uncensored": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "notes": "Uncensored — no web_search tool; direct answers only"
+  },
+  "dolphin3-qwen2.5-1.5b-uncensored": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"],
+    "notes": "Uncensored mid tier — Qwen 2.5 1.5B Dolphin; extra prompt tuning to suppress trailing disclaimers"
+  },
+  "dolphin3-llama3.2-3b-uncensored": {
+    "native_tools": [],
+    "inject_tools": ["photo_analysis"]
+  }
+}
