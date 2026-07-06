@@ -1,0 +1,160 @@
+.class public final Lt/F;
+.super LJ3/j;
+.source "SourceFile"
+
+# interfaces
+.implements LR3/e;
+
+
+# instance fields
+.field public d:I
+
+.field public synthetic e:Ljava/lang/Object;
+
+.field public final synthetic f:Lt/L;
+
+
+# direct methods
+.method public constructor <init>(Lt/L;LH3/d;)V
+    .locals 0
+
+    iput-object p1, p0, Lt/F;->f:Lt/L;
+
+    const/4 p1, 0x2
+
+    invoke-direct {p0, p1, p2}, LJ3/j;-><init>(ILH3/d;)V
+
+    return-void
+.end method
+
+
+# virtual methods
+.method public final create(Ljava/lang/Object;LH3/d;)LH3/d;
+    .locals 2
+
+    new-instance v0, Lt/F;
+
+    iget-object v1, p0, Lt/F;->f:Lt/L;
+
+    invoke-direct {v0, v1, p2}, Lt/F;-><init>(Lt/L;LH3/d;)V
+
+    iput-object p1, v0, Lt/F;->e:Ljava/lang/Object;
+
+    return-object v0
+.end method
+
+.method public final invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
+    .locals 0
+
+    check-cast p1, Lq0/C;
+
+    check-cast p2, LH3/d;
+
+    invoke-virtual {p0, p1, p2}, Lt/F;->create(Ljava/lang/Object;LH3/d;)LH3/d;
+
+    move-result-object p1
+
+    check-cast p1, Lt/F;
+
+    sget-object p2, LD3/w;->a:LD3/w;
+
+    invoke-virtual {p1, p2}, Lt/F;->invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
+
+    move-result-object p1
+
+    return-object p1
+.end method
+
+.method public final invokeSuspend(Ljava/lang/Object;)Ljava/lang/Object;
+    .locals 12
+
+    sget-object v0, LI3/a;->d:LI3/a;
+
+    iget v1, p0, Lt/F;->d:I
+
+    const/4 v2, 0x1
+
+    if-eqz v1, :cond_1
+
+    if-ne v1, v2, :cond_0
+
+    invoke-static {p1}, LA2/B0;->b(Ljava/lang/Object;)V
+
+    goto :goto_0
+
+    :cond_0
+    new-instance p1, Ljava/lang/IllegalStateException;
+
+    const-string v0, "call to \'resume\' before \'invoke\' with coroutine"
+
+    invoke-direct {p1, v0}, Ljava/lang/IllegalStateException;-><init>(Ljava/lang/String;)V
+
+    throw p1
+
+    :cond_1
+    invoke-static {p1}, LA2/B0;->b(Ljava/lang/Object;)V
+
+    iget-object p1, p0, Lt/F;->e:Ljava/lang/Object;
+
+    move-object v5, p1
+
+    check-cast v5, Lq0/C;
+
+    new-instance p1, Lr0/c;
+
+    invoke-direct {p1}, Lr0/c;-><init>()V
+
+    new-instance v6, LB/J0;
+
+    iget-object v4, p0, Lt/F;->f:Lt/L;
+
+    const/4 v1, 0x5
+
+    invoke-direct {v6, v4, v1, p1}, LB/J0;-><init>(Ljava/lang/Object;ILjava/lang/Object;)V
+
+    new-instance v7, Lp3/W;
+
+    const/16 v1, 0xb
+
+    invoke-direct {v7, p1, v1, v4}, Lp3/W;-><init>(Ljava/lang/Object;ILjava/lang/Object;)V
+
+    new-instance v8, Lt/E;
+
+    const/4 v1, 0x0
+
+    invoke-direct {v8, v4, v1}, Lt/E;-><init>(Lt/L;I)V
+
+    new-instance v9, Lt/E;
+
+    const/4 v1, 0x1
+
+    invoke-direct {v9, v4, v1}, Lt/E;-><init>(Lt/L;I)V
+
+    new-instance v10, LE1/l;
+
+    const/16 v1, 0xd
+
+    invoke-direct {v10, p1, v1, v4}, LE1/l;-><init>(Ljava/lang/Object;ILjava/lang/Object;)V
+
+    new-instance v3, Lt/D;
+
+    const/4 v11, 0x0
+
+    invoke-direct/range {v3 .. v11}, Lt/D;-><init>(Lt/L;Lq0/C;LB/J0;Lp3/W;Lt/E;Lt/E;LE1/l;LH3/d;)V
+
+    iput v2, p0, Lt/F;->d:I
+
+    invoke-static {v3, p0}, Ld4/x;->e(LR3/e;LH3/d;)Ljava/lang/Object;
+
+    move-result-object p1
+
+    if-ne p1, v0, :cond_2
+
+    return-object v0
+
+    :cond_2
+    :goto_0
+    sget-object p1, LD3/w;->a:LD3/w;
+
+    return-object p1
+.end method

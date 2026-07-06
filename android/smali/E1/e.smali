@@ -1,0 +1,27 @@
+.class public abstract LE1/e;
+.super Ljava/lang/Object;
+.source "SourceFile"
+
+
+# static fields
+.field public static final a:LU/b;
+
+
+# direct methods
+.method static constructor <clinit>()V
+    .locals 4
+
+    sget-object v0, LE1/d;->e:LE1/d;
+
+    new-instance v1, LU/b;
+
+    const v2, -0x411a66b6
+
+    const/4 v3, 0x0
+
+    invoke-direct {v1, v2, v0, v3}, LU/b;-><init>(ILjava/lang/Object;Z)V
+
+    sput-object v1, LE1/e;->a:LU/b;
+
+    return-void
+.end method

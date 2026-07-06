@@ -1,0 +1,3 @@
+.class public abstract Ls/k;
+.super Ljava/lang/Object;
+.source "SourceFile"

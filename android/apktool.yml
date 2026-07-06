@@ -1,0 +1,27 @@
+version: 2.11.1
+apkFileName: app-release.apk
+isFrameworkApk: false
+usesFramework:
+  ids:
+  - 1
+  tag: null
+sdkInfo:
+  minSdkVersion: 26
+  targetSdkVersion: 36
+packageInfo:
+  forcedPackageId: 127
+  renameManifestPackage: null
+versionInfo:
+  versionCode: 1
+  versionName: 1.0.0
+sharedLibrary: false
+sparseResources: false
+compactEntries: false
+doNotCompress:
+- arsc
+- png
+- so
+- assets/dexopt/baseline.prof
+- assets/dexopt/baseline.profm
+- assets/mlkit_odt_default_classifier/labeler_with_validation.tflite
+- assets/mlkit_odt_localizer/localizer_with_validation.tflite

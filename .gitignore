@@ -1,0 +1,15 @@
+# Build outputs
+dist/
+android/build/
+*.apk
+!android/**/*.apk
+
+# Signing (generate locally; never commit real release keys)
+*.keystore
+*.jks
+
+# APK analysis scratch
+.apk-inspect/
+
+# Apktool jar (download via scripts/setup-tools.sh)
+tools/apktool.jar

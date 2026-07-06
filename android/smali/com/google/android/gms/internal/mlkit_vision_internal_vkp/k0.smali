@@ -1,0 +1,576 @@
+.class public final Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;
+.super Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/g0;
+.source "SourceFile"
+
+
+# instance fields
+.field public final d:Ljava/io/Serializable;
+
+
+# direct methods
+.method public constructor <init>(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/m0;)V
+    .locals 0
+
+    .line 1
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    .line 2
+    iput-object p1, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    return-void
+.end method
+
+.method public constructor <init>(Ljava/lang/Boolean;)V
+    .locals 0
+
+    .line 3
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    .line 4
+    iput-object p1, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    return-void
+.end method
+
+.method public constructor <init>(Ljava/lang/String;)V
+    .locals 0
+
+    .line 5
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    .line 6
+    invoke-static {p1}, Ljava/util/Objects;->requireNonNull(Ljava/lang/Object;)Ljava/lang/Object;
+
+    iput-object p1, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    return-void
+.end method
+
+.method public static m(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;)Z
+    .locals 1
+
+    iget-object p0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    instance-of v0, p0, Ljava/lang/Number;
+
+    if-eqz v0, :cond_1
+
+    check-cast p0, Ljava/lang/Number;
+
+    instance-of v0, p0, Ljava/math/BigInteger;
+
+    if-nez v0, :cond_0
+
+    instance-of v0, p0, Ljava/lang/Long;
+
+    if-nez v0, :cond_0
+
+    instance-of v0, p0, Ljava/lang/Integer;
+
+    if-nez v0, :cond_0
+
+    instance-of v0, p0, Ljava/lang/Short;
+
+    if-nez v0, :cond_0
+
+    instance-of p0, p0, Ljava/lang/Byte;
+
+    if-eqz p0, :cond_1
+
+    :cond_0
+    const/4 p0, 0x1
+
+    return p0
+
+    :cond_1
+    const/4 p0, 0x0
+
+    return p0
+.end method
+
+
+# virtual methods
+.method public final e()J
+    .locals 2
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    instance-of v0, v0, Ljava/lang/Number;
+
+    if-eqz v0, :cond_0
+
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->longValue()J
+
+    move-result-wide v0
+
+    return-wide v0
+
+    :cond_0
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v0}, Ljava/lang/Long;->parseLong(Ljava/lang/String;)J
+
+    move-result-wide v0
+
+    return-wide v0
+.end method
+
+.method public final equals(Ljava/lang/Object;)Z
+    .locals 4
+
+    if-ne p0, p1, :cond_0
+
+    goto/16 :goto_5
+
+    :cond_0
+    if-eqz p1, :cond_d
+
+    invoke-virtual {p1}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    const-class v1, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;
+
+    if-eq v1, v0, :cond_1
+
+    goto/16 :goto_6
+
+    :cond_1
+    check-cast p1, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    iget-object v1, p1, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    if-nez v0, :cond_2
+
+    if-nez v1, :cond_d
+
+    goto/16 :goto_5
+
+    :cond_2
+    invoke-static {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->m(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_5
+
+    invoke-static {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->m(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;)Z
+
+    move-result v2
+
+    if-eqz v2, :cond_5
+
+    instance-of v0, v0, Ljava/math/BigInteger;
+
+    if-nez v0, :cond_4
+
+    instance-of v0, v1, Ljava/math/BigInteger;
+
+    if-eqz v0, :cond_3
+
+    goto :goto_0
+
+    :cond_3
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->longValue()J
+
+    move-result-wide v0
+
+    invoke-virtual {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/Number;->longValue()J
+
+    move-result-wide v2
+
+    cmp-long p1, v0, v2
+
+    if-nez p1, :cond_d
+
+    goto/16 :goto_5
+
+    :cond_4
+    :goto_0
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->l()Ljava/math/BigInteger;
+
+    move-result-object v0
+
+    invoke-virtual {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->l()Ljava/math/BigInteger;
+
+    move-result-object p1
+
+    invoke-virtual {v0, p1}, Ljava/math/BigInteger;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    return p1
+
+    :cond_5
+    instance-of v2, v0, Ljava/lang/Number;
+
+    if-eqz v2, :cond_c
+
+    instance-of v2, v1, Ljava/lang/Number;
+
+    if-eqz v2, :cond_c
+
+    instance-of v2, v0, Ljava/math/BigDecimal;
+
+    if-eqz v2, :cond_8
+
+    instance-of v2, v1, Ljava/math/BigDecimal;
+
+    if-eqz v2, :cond_8
+
+    instance-of v2, v0, Ljava/math/BigDecimal;
+
+    if-eqz v2, :cond_6
+
+    check-cast v0, Ljava/math/BigDecimal;
+
+    goto :goto_1
+
+    :cond_6
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v0}, LA2/t7;->a(Ljava/lang/String;)Ljava/math/BigDecimal;
+
+    move-result-object v0
+
+    :goto_1
+    instance-of v2, v1, Ljava/math/BigDecimal;
+
+    if-eqz v2, :cond_7
+
+    check-cast v1, Ljava/math/BigDecimal;
+
+    goto :goto_2
+
+    :cond_7
+    invoke-virtual {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {p1}, LA2/t7;->a(Ljava/lang/String;)Ljava/math/BigDecimal;
+
+    move-result-object v1
+
+    :goto_2
+    invoke-virtual {v0, v1}, Ljava/math/BigDecimal;->compareTo(Ljava/math/BigDecimal;)I
+
+    move-result p1
+
+    if-nez p1, :cond_d
+
+    goto :goto_5
+
+    :cond_8
+    instance-of v0, v0, Ljava/lang/Number;
+
+    if-eqz v0, :cond_9
+
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->doubleValue()D
+
+    move-result-wide v2
+
+    goto :goto_3
+
+    :cond_9
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v0}, Ljava/lang/Double;->parseDouble(Ljava/lang/String;)D
+
+    move-result-wide v2
+
+    :goto_3
+    instance-of v0, v1, Ljava/lang/Number;
+
+    if-eqz v0, :cond_a
+
+    invoke-virtual {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object p1
+
+    invoke-virtual {p1}, Ljava/lang/Number;->doubleValue()D
+
+    move-result-wide v0
+
+    goto :goto_4
+
+    :cond_a
+    invoke-virtual {p1}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object p1
+
+    invoke-static {p1}, Ljava/lang/Double;->parseDouble(Ljava/lang/String;)D
+
+    move-result-wide v0
+
+    :goto_4
+    cmpl-double p1, v2, v0
+
+    if-eqz p1, :cond_b
+
+    invoke-static {v2, v3}, Ljava/lang/Double;->isNaN(D)Z
+
+    move-result p1
+
+    if-eqz p1, :cond_d
+
+    invoke-static {v0, v1}, Ljava/lang/Double;->isNaN(D)Z
+
+    move-result p1
+
+    if-nez p1, :cond_b
+
+    goto :goto_6
+
+    :cond_b
+    :goto_5
+    const/4 p1, 0x1
+
+    return p1
+
+    :cond_c
+    invoke-virtual {v0, v1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    move-result p1
+
+    return p1
+
+    :cond_d
+    :goto_6
+    const/4 p1, 0x0
+
+    return p1
+.end method
+
+.method public final f()Ljava/lang/Number;
+    .locals 2
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    instance-of v1, v0, Ljava/lang/Number;
+
+    if-eqz v1, :cond_0
+
+    check-cast v0, Ljava/lang/Number;
+
+    return-object v0
+
+    :cond_0
+    instance-of v1, v0, Ljava/lang/String;
+
+    if-eqz v1, :cond_1
+
+    new-instance v1, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/m0;
+
+    check-cast v0, Ljava/lang/String;
+
+    invoke-direct {v1, v0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/m0;-><init>(Ljava/lang/String;)V
+
+    return-object v1
+
+    :cond_1
+    new-instance v0, Ljava/lang/UnsupportedOperationException;
+
+    const-string v1, "Primitive is neither a number nor a string"
+
+    invoke-direct {v0, v1}, Ljava/lang/UnsupportedOperationException;-><init>(Ljava/lang/String;)V
+
+    throw v0
+.end method
+
+.method public final hashCode()I
+    .locals 4
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    if-nez v0, :cond_0
+
+    const/16 v0, 0x1f
+
+    return v0
+
+    :cond_0
+    invoke-static {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->m(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;)Z
+
+    move-result v1
+
+    const/16 v2, 0x20
+
+    if-eqz v1, :cond_1
+
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->longValue()J
+
+    move-result-wide v0
+
+    :goto_0
+    ushr-long v2, v0, v2
+
+    xor-long/2addr v0, v2
+
+    long-to-int v0, v0
+
+    return v0
+
+    :cond_1
+    instance-of v1, v0, Ljava/lang/Number;
+
+    if-eqz v1, :cond_2
+
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->doubleValue()D
+
+    move-result-wide v0
+
+    invoke-static {v0, v1}, Ljava/lang/Double;->doubleToLongBits(D)J
+
+    move-result-wide v0
+
+    goto :goto_0
+
+    :cond_2
+    invoke-virtual {v0}, Ljava/lang/Object;->hashCode()I
+
+    move-result v0
+
+    return v0
+.end method
+
+.method public final k()Ljava/lang/String;
+    .locals 3
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    instance-of v1, v0, Ljava/lang/String;
+
+    if-nez v1, :cond_2
+
+    instance-of v1, v0, Ljava/lang/Number;
+
+    if-nez v1, :cond_1
+
+    instance-of v1, v0, Ljava/lang/Boolean;
+
+    if-eqz v1, :cond_0
+
+    check-cast v0, Ljava/lang/Boolean;
+
+    invoke-virtual {v0}, Ljava/lang/Boolean;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+
+    :cond_0
+    new-instance v1, Ljava/lang/AssertionError;
+
+    invoke-virtual {v0}, Ljava/lang/Object;->getClass()Ljava/lang/Class;
+
+    move-result-object v0
+
+    invoke-static {v0}, Ljava/lang/String;->valueOf(Ljava/lang/Object;)Ljava/lang/String;
+
+    move-result-object v0
+
+    const-string v2, "Unexpected value type: "
+
+    invoke-virtual {v2, v0}, Ljava/lang/String;->concat(Ljava/lang/String;)Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-direct {v1, v0}, Ljava/lang/AssertionError;-><init>(Ljava/lang/Object;)V
+
+    throw v1
+
+    :cond_1
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Object;->toString()Ljava/lang/String;
+
+    move-result-object v0
+
+    return-object v0
+
+    :cond_2
+    check-cast v0, Ljava/lang/String;
+
+    return-object v0
+.end method
+
+.method public final l()Ljava/math/BigInteger;
+    .locals 2
+
+    iget-object v0, p0, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->d:Ljava/io/Serializable;
+
+    instance-of v1, v0, Ljava/math/BigInteger;
+
+    if-eqz v1, :cond_0
+
+    check-cast v0, Ljava/math/BigInteger;
+
+    return-object v0
+
+    :cond_0
+    invoke-static {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->m(Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;)Z
+
+    move-result v0
+
+    if-eqz v0, :cond_1
+
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->f()Ljava/lang/Number;
+
+    move-result-object v0
+
+    invoke-virtual {v0}, Ljava/lang/Number;->longValue()J
+
+    move-result-wide v0
+
+    invoke-static {v0, v1}, Ljava/math/BigInteger;->valueOf(J)Ljava/math/BigInteger;
+
+    move-result-object v0
+
+    return-object v0
+
+    :cond_1
+    invoke-virtual {p0}, Lcom/google/android/gms/internal/mlkit_vision_internal_vkp/k0;->k()Ljava/lang/String;
+
+    move-result-object v0
+
+    invoke-static {v0}, LA2/t7;->b(Ljava/lang/String;)V
+
+    new-instance v1, Ljava/math/BigInteger;
+
+    invoke-direct {v1, v0}, Ljava/math/BigInteger;-><init>(Ljava/lang/String;)V
+
+    return-object v1
+.end method
