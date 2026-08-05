@@ -2,9 +2,12 @@ package com.localllm.chat.llm
 
 import android.content.Context
 import com.localllm.chat.data.catalog.ModelCatalog
-import com.localllm.chat.data.catalog.PromptFormatKind
 import com.localllm.chat.data.db.ModelEntity
 import com.localllm.chat.data.repo.SettingsRepository
+import com.suhel.llamabro.sdk.chat.ChatEvent
+import com.suhel.llamabro.sdk.chat.CompletionResult
+import com.suhel.llamabro.sdk.chat.LlamaChatSession
+import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import com.suhel.llamabro.sdk.config.ModelLoadConfig
 import com.suhel.llamabro.sdk.config.ModelProfiles
@@ -12,10 +15,6 @@ import com.suhel.llamabro.sdk.config.OverflowStrategy
 import com.suhel.llamabro.sdk.config.SessionConfig
 import com.suhel.llamabro.sdk.engine.LlamaEngine
 import com.suhel.llamabro.sdk.engine.LlamaSession
-import com.suhel.llamabro.sdk.engine.TokenGenerationResultCode
-import com.suhel.llamabro.sdk.format.PromptFormat
-import com.suhel.llamabro.sdk.format.PromptFormats
-import com.suhel.llamabro.sdk.format.PromptFormatter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -36,8 +35,14 @@ class LlmRuntime(
     private var engine: LlamaEngine? = null
     private var session: LlamaSession? = null
     private var activeModel: ModelEntity? = null
-    private var sessionSystemPrompt: String? = null
     private var loadedContextSize: Int = 0
+    private var loadedTemperature: Float = 0.7f
+
+    /** v1 l3/o.g — warm LlamaChatSession per conversation. */
+    private var chatSession: LlamaChatSession? = null
+    private var chatConversationId: Long? = null
+    private var chatModelPath: String? = null
+    private var chatSystemPrompt: String? = null
 
     suspend fun ensureLoaded(model: ModelEntity, onProgress: ((Float) -> Boolean)? = null) =
         ensureLoaded(model, temperatureOverride = null, onProgress)
@@ -46,30 +51,30 @@ class LlmRuntime(
         model: ModelEntity,
         temperatureOverride: Float? = null,
         onProgress: ((Float) -> Boolean)? = null,
-    ) = mutex.withLock {
+    ) {
         validateModelFile(model)
         val settings = settingsRepository.settings.first()
         val contextSize = effectiveContextSize(model, settings.contextSize)
-        if (
-            activeModel?.filePath == model.filePath &&
-            engine != null &&
-            loadedContextSize == contextSize
-        ) {
-            return@withLock
+        val temp = temperatureOverride ?: settings.temperature
+        val mustReload = mutex.withLock {
+            activeModel?.filePath != model.filePath ||
+                engine == null ||
+                loadedContextSize != contextSize
         }
-        unloadLocked()
+        if (!mustReload) return
+
+        mutex.withLock { unloadLocked() }
         val profile = profileFor(model)
         val loadable = LoadableModel(
             loadConfig = ModelLoadConfig(path = model.filePath),
             profile = profile,
         )
-        val temp = temperatureOverride ?: settings.temperature
         val inference = profile.defaultInference.copy(temperature = temp)
-        engine = withContext(Dispatchers.IO) {
+        val newEngine = withContext(Dispatchers.IO) {
             LlamaEngine.create(loadable, onProgress)
         }
-        session = withContext(Dispatchers.IO) {
-            engine!!.createSession(
+        val newSession = withContext(Dispatchers.IO) {
+            newEngine.createSession(
                 SessionConfig(
                     contextSize = contextSize,
                     overflowStrategy = if (model.promptFormat == "QWEN_3_5") {
@@ -81,78 +86,92 @@ class LlmRuntime(
                 ),
             )
         }
-        sessionSystemPrompt = null
-        activeModel = model
-        loadedContextSize = contextSize
+        mutex.withLock {
+            engine = newEngine
+            session = newSession
+            activeModel = model
+            loadedContextSize = contextSize
+            loadedTemperature = temp
+            invalidateChatBinding()
+        }
     }
 
     /**
-     * Generate a reply with full conversation history replay (v1 LlamaChatSession behaviour).
-     * [priorTurns] = earlier user/assistant messages; [userMessage] is the new user input.
+     * v1 flow: createChatSession → initialize → feedHistory → completion().
+     * Reuses the same LlamaChatSession for follow-up messages in one conversation.
      */
-    fun generateWithHistory(
+    fun sendUserMessage(
+        conversationId: Long,
         model: ModelEntity,
         priorTurns: List<ChatTurn>,
         userMessage: String,
-        promptKind: PromptFormatKind,
         systemPrompt: String,
+        temperatureOverride: Float? = null,
     ): Flow<String> = flow {
-        ensureLoaded(model)
-        resetConversationSession(systemPrompt)
-        val format = promptKind.toFormat()
-        val qwenPrefill = model.promptFormat == "QWEN_3_5"
-        mutex.withLock {
-            val s = session ?: error("Model session not ready")
-            for (turn in priorTurns) {
-                when (turn.role.lowercase()) {
-                    "user" -> s.addPrompt(PromptFormatter.formatHistoryUser(format, turn.content))
-                    "assistant" -> s.addPrompt(
-                        PromptFormatter.formatHistoryAssistant(format, turn.content, turn.thinking),
-                    )
+        ensureLoaded(model, temperatureOverride = temperatureOverride)
+        val inference = InferenceConfig(
+            temperature = temperatureOverride ?: loadedTemperature,
+        )
+        val chat = mutex.withLock {
+            bindChatSessionLocked(conversationId, model, systemPrompt, priorTurns)
+        }
+        var lastLen = 0
+        chat.completion(ChatEvent.UserEvent(userMessage, think = false), inference).collect { result ->
+            when (result) {
+                is CompletionResult.Streaming -> {
+                    val text = textFromParts(result.events)
+                    if (text.length > lastLen) {
+                        emit(text.substring(lastLen))
+                        lastLen = text.length
+                    }
+                }
+                is CompletionResult.Complete -> {
+                    val text = textFromParts(result.events)
+                    if (text.length > lastLen) {
+                        emit(text.substring(lastLen))
+                    }
+                }
+                is CompletionResult.Error -> {
+                    throw IllegalStateException(result.message, result.cause)
                 }
             }
-            s.addPrompt(PromptFormatter.formatGeneration(format, userMessage, qwenPrefill))
         }
-        collectGenerationTokens().collect { emit(it) }
     }.flowOn(Dispatchers.IO)
 
-    /** Replay [priorTurns] + tool round, then prime assistant continuation. */
-    fun continueAfterToolResult(
-        model: ModelEntity,
-        priorTurns: List<ChatTurn>,
+    fun continueAfterTool(
         assistantWithToolCall: String,
         toolResponse: String,
-        promptKind: PromptFormatKind,
-        systemPrompt: String,
+        model: ModelEntity,
+        temperatureOverride: Float? = null,
     ): Flow<String> = flow {
-        ensureLoaded(model)
-        resetConversationSession(systemPrompt)
-        val format = promptKind.toFormat()
-        val qwenPrefill = model.promptFormat == "QWEN_3_5"
-        val extended = priorTurns + listOf(
-            ChatTurn("assistant", assistantWithToolCall),
-            ChatTurn("user", toolResponse),
+        ensureLoaded(model, temperatureOverride = temperatureOverride)
+        val chat = mutex.withLock {
+            chatSession ?: error("Chat session not initialized")
+        }
+        val inference = InferenceConfig(
+            temperature = temperatureOverride ?: loadedTemperature,
         )
-        mutex.withLock {
-            val s = session ?: error("Model session not ready")
-            for (turn in extended) {
-                when (turn.role.lowercase()) {
-                    "user" -> {
-                        val text = if (turn.content.trimStart().startsWith("<tool_response>")) {
-                            PromptFormatter.formatHistoryToolResult(format, turn.content)
-                        } else {
-                            PromptFormatter.formatHistoryUser(format, turn.content)
-                        }
-                        s.addPrompt(text)
+        var lastLen = 0
+        chat.continueAfterTool(assistantWithToolCall, toolResponse, inference).collect { result ->
+            when (result) {
+                is CompletionResult.Streaming -> {
+                    val text = textFromParts(result.events)
+                    if (text.length > lastLen) {
+                        emit(text.substring(lastLen))
+                        lastLen = text.length
                     }
-                    "assistant" -> s.addPrompt(
-                        PromptFormatter.formatHistoryAssistant(format, turn.content, turn.thinking),
-                    )
+                }
+                is CompletionResult.Complete -> {
+                    val text = textFromParts(result.events)
+                    if (text.length > lastLen) {
+                        emit(text.substring(lastLen))
+                    }
+                }
+                is CompletionResult.Error -> {
+                    throw IllegalStateException(result.message, result.cause)
                 }
             }
-            s.addPrompt(PromptFormatter.formatAssistantContinue(format, qwenPrefill))
         }
-        collectGenerationTokens().collect { emit(it) }
     }.flowOn(Dispatchers.IO)
 
     suspend fun unload() = mutex.withLock { unloadLocked() }
@@ -161,47 +180,95 @@ class LlmRuntime(
         session?.abort()
     }
 
-    private suspend fun resetConversationSession(systemPrompt: String) {
-        mutex.withLock {
-            session?.clear()
-            sessionSystemPrompt = null
-        }
-        applySystemPrompt(systemPrompt)
-    }
+    private suspend fun bindChatSessionLocked(
+        conversationId: Long,
+        model: ModelEntity,
+        systemPrompt: String,
+        priorTurns: List<ChatTurn>,
+    ): LlamaChatSession {
+        val llamaSession = session ?: error("Model session not ready")
+        val needsReset = chatConversationId != conversationId ||
+            chatModelPath != model.filePath ||
+            chatSystemPrompt != systemPrompt ||
+            chatSession == null
 
-    private suspend fun applySystemPrompt(prompt: String) = mutex.withLock {
-        if (sessionSystemPrompt == prompt) return@withLock
-        session?.setSystemPrompt(prompt)
-        sessionSystemPrompt = prompt
-    }
-
-    private fun collectGenerationTokens(): Flow<String> = flow {
-        val s = session ?: error("Model session not ready")
-        s.generateFlow().collect { result ->
-            when (result.resultCode) {
-                TokenGenerationResultCode.ERROR ->
-                    error("On-device generation failed (context full or decode error). Try a shorter message or new chat.")
-                TokenGenerationResultCode.ABORTED -> return@collect
-                TokenGenerationResultCode.OK -> Unit
+        if (needsReset) {
+            recreateSessionLocked(model)
+            val freshSession = session ?: error("Model session not ready")
+            chatSession = freshSession.createChatSession(systemPrompt)
+            chatSession!!.initialize()
+            val history = priorTurns.mapNotNull { it.toChatEvent() }
+            if (history.isNotEmpty()) {
+                chatSession!!.feedHistory(history)
             }
-            result.token?.let { emit(it) }
-            if (result.isComplete) return@collect
+            chatConversationId = conversationId
+            chatModelPath = model.filePath
+            chatSystemPrompt = systemPrompt
         }
+        return chatSession!!
+    }
+
+    private suspend fun recreateSessionLocked(model: ModelEntity) {
+        val eng = engine ?: error("Engine not loaded")
+        session?.close()
+        session = eng.createSession(
+            SessionConfig(
+                contextSize = loadedContextSize,
+                overflowStrategy = if (model.promptFormat == "QWEN_3_5") {
+                    OverflowStrategy.DROP_MIDDLE
+                } else {
+                    OverflowStrategy.DROP_OLDEST
+                },
+                inferenceConfig = profileFor(model).defaultInference.copy(
+                    temperature = loadedTemperature,
+                ),
+            ),
+        )
+    }
+
+    private fun invalidateChatBinding() {
+        chatSession = null
+        chatConversationId = null
+        chatModelPath = null
+        chatSystemPrompt = null
     }
 
     private fun unloadLocked() {
+        chatSession = null
         session?.close()
         engine?.close()
         session = null
         engine = null
         activeModel = null
-        sessionSystemPrompt = null
         loadedContextSize = 0
+        invalidateChatBinding()
+    }
+
+    private fun textFromParts(parts: List<ChatEvent.AssistantPart>): String =
+        parts.filterIsInstance<ChatEvent.AssistantPart.TextPart>()
+            .joinToString("") { it.content }
+
+    private fun ChatTurn.toChatEvent(): ChatEvent? = when (role.lowercase()) {
+        "user" -> ChatEvent.UserEvent(content, think = false)
+        "assistant" -> {
+            val parts = buildList {
+                if (!thinking.isNullOrBlank()) {
+                    add(ChatEvent.AssistantPart.ThinkingPart(thinking))
+                }
+                if (content.isNotBlank()) {
+                    add(ChatEvent.AssistantPart.TextPart(content))
+                }
+            }
+            if (parts.isEmpty()) null else ChatEvent.AssistantEvent(parts)
+        }
+        else -> null
     }
 
     private fun validateModelFile(model: ModelEntity) {
         val catalog = runCatching { ModelCatalog.all(context) }.getOrNull()
-        val entry = catalog?.find { it.name == model.name || it.fileName == java.io.File(model.filePath).name }
+        val entry = catalog?.find {
+            it.name == model.name || it.fileName == java.io.File(model.filePath).name
+        }
         GgufValidator.validate(
             path = model.filePath,
             expectedExactBytes = entry?.expectedExactBytes ?: 0,
@@ -219,11 +286,5 @@ class LlmRuntime(
     private fun effectiveContextSize(model: ModelEntity, requested: Int): Int {
         val min = if (model.promptFormat == "QWEN_3_5") 6144 else 1024
         return requested.coerceIn(min, 8192)
-    }
-
-    private fun PromptFormatKind.toFormat(): PromptFormat = when (this) {
-        PromptFormatKind.LLAMA_3 -> PromptFormats.LLAMA_3
-        PromptFormatKind.GEMMA -> PromptFormats.GEMMA
-        else -> PromptFormats.CHAT_ML
     }
 }

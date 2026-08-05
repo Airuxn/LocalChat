@@ -2,6 +2,7 @@ package com.suhel.llamabro.sdk.config
 
 import com.suhel.llamabro.sdk.format.PromptFormat
 import com.suhel.llamabro.sdk.format.PromptFormats
+import com.suhel.llamabro.sdk.config.ThinkingCapabilities
 
 data class ModelLoadConfig(
     val path: String,
@@ -31,6 +32,7 @@ data class InferenceConfig(
 data class ModelProfile(
     val promptFormat: PromptFormat,
     val defaultInference: InferenceConfig = InferenceConfig(),
+    val thinking: ThinkingCapability? = null,
 )
 
 data class LoadableModel(
@@ -56,13 +58,14 @@ object ModelProfiles {
     val LLAMA_3_2: ModelProfile = ModelProfile(PromptFormats.LLAMA_3, InferenceConfig(topP = 0.9f, minP = 0.05f))
     val GEMMA: ModelProfile = ModelProfile(PromptFormats.GEMMA, InferenceConfig(topP = 0.9f, minP = 0f))
     val QWEN_3_5: ModelProfile = ModelProfile(
-        PromptFormats.CHAT_ML,
-        InferenceConfig(
+        promptFormat = PromptFormats.CHAT_ML,
+        defaultInference = InferenceConfig(
             repeatPenalty = 1.0f,
             presencePenalty = 1.5f,
             topK = 20,
             topP = 0.95f,
             temperature = 1.0f,
         ),
+        thinking = ThinkingCapabilities.PREFILL_THINKING,
     )
 }

@@ -1,7 +1,6 @@
 package com.localllm.chat.llm
 
 import android.content.Context
-import com.localllm.chat.data.catalog.PromptFormatKind
 import com.localllm.chat.data.db.MemoryEntity
 import com.localllm.chat.data.db.ModelEntity
 import com.localllm.chat.data.repo.SettingsState
@@ -44,16 +43,16 @@ class ChatEngine(
     }
 
     fun sendMessage(
+        conversationId: Long,
         model: ModelEntity,
         mode: ChatMode,
         priorTurns: List<ChatTurn>,
         userMessage: String,
         systemPrompt: String,
-        promptKind: PromptFormatKind,
         settings: SettingsState,
         imageBytes: ByteArray?,
     ): Flow<String> = flow {
-        llmRuntime.ensureLoaded(model, temperatureOverride = if (mode == ChatMode.CODING) 0.2f else null)
+        val tempOverride = if (mode == ChatMode.CODING) 0.2f else null
 
         var prompt = userMessage
         if (imageBytes != null && isEburonModel(model) && settings.eburonToolsEnabled) {
@@ -69,16 +68,21 @@ class ChatEngine(
             iterations++
             val chunk = StringBuilder()
             val tokenFlow = if (followUpAssistant != null && followUpTool != null) {
-                llmRuntime.continueAfterToolResult(
-                    model = model,
-                    priorTurns = history,
+                llmRuntime.continueAfterTool(
                     assistantWithToolCall = followUpAssistant!!,
                     toolResponse = followUpTool!!,
-                    promptKind = promptKind,
-                    systemPrompt = systemPrompt,
+                    model = model,
+                    temperatureOverride = tempOverride,
                 )
             } else {
-                llmRuntime.generateWithHistory(model, history, prompt, promptKind, systemPrompt)
+                llmRuntime.sendUserMessage(
+                    conversationId = conversationId,
+                    model = model,
+                    priorTurns = history,
+                    userMessage = prompt,
+                    systemPrompt = systemPrompt,
+                    temperatureOverride = tempOverride,
+                )
             }
             tokenFlow.collect { token ->
                 chunk.append(token)

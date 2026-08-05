@@ -5,6 +5,8 @@ import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import com.suhel.llamabro.sdk.config.OverflowStrategy
 import com.suhel.llamabro.sdk.config.SessionConfig
+import com.suhel.llamabro.sdk.chat.LlamaChatSession
+import com.suhel.llamabro.sdk.chat.internal.LlamaChatSessionImpl
 import com.suhel.llamabro.sdk.engine.LlamaEngine
 import com.suhel.llamabro.sdk.engine.LlamaSession
 import com.suhel.llamabro.sdk.engine.TokenGenerationResult
@@ -72,6 +74,15 @@ class LlamaSessionImpl(
         )
         sessionPtr = SessionJni.create(enginePtr, params)
     }
+
+    override fun getLoadableModel(): LoadableModel = loadableModel
+
+    override suspend fun createChatSession(systemPrompt: String): LlamaChatSession =
+        LlamaChatSessionImpl(
+            session = this,
+            systemPrompt = systemPrompt,
+            profile = loadableModel.profile,
+        )
 
     override suspend fun setSystemPrompt(prompt: String) = withLock {
         SessionJni.setSystemPrompt(sessionPtr, prompt)

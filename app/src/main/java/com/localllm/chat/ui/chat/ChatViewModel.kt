@@ -99,9 +99,6 @@ class ChatViewModel(
             _streamingText.value = ""
             val buffer = StringBuilder()
             try {
-                val catalogModel = container.modelRepository.catalog.find { it.name == model.name }
-                val kind = catalogModel?.promptFormatKind
-                    ?: com.localllm.chat.data.catalog.PromptFormatKind.CHAT_ML
                 val settings = container.settingsRepository.settings.first()
                 val memories = container.memoryRepository.observeForPrompt().first()
                 val onboarding = container.onboardingRepository.state.first()
@@ -117,12 +114,12 @@ class ChatViewModel(
                 attachedImage = null
                 _isLoadingModel.value = false
                 container.chatEngine.sendMessage(
+                    conversationId = conversationId,
                     model = model,
                     mode = _chatMode.value,
                     priorTurns = priorTurns,
                     userMessage = text,
                     systemPrompt = systemPrompt,
-                    promptKind = kind,
                     settings = settings,
                     imageBytes = image,
                 ).collect { token ->
