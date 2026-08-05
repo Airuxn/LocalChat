@@ -51,6 +51,8 @@
 
     invoke-super {p0, p1}, Lb/m;->onCreate(Landroid/os/Bundle;)V
 
+    invoke-static {p0}, Lcom/localllm/chat/onboarding/LocaleUtils;->applyToActivity(Landroid/content/Context;)V
+
     sget p1, Lb/n;->a:I
 
     sget-object p1, Lb/D;->f:Lb/D;

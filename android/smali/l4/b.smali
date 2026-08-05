@@ -321,16 +321,6 @@
 
     invoke-static/range {v2 .. v9}, LJ/q1;->f(LR3/a;LY/p;ZLJ/J0;LR3/e;LM/p;II)V
 
-    sget-object v6, Lp3/s;->i:LU/b;
-
-    iget-object v1, v0, Ll4/b;->f:Ljava/lang/Object;
-
-    move-object v2, v1
-
-    check-cast v2, LR3/a;
-
-    invoke-static/range {v2 .. v9}, LJ/q1;->f(LR3/a;LY/p;ZLJ/J0;LR3/e;LM/p;II)V
-
     :goto_6
     sget-object v1, LD3/w;->a:LD3/w;
 

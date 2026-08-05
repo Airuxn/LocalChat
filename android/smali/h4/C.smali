@@ -275,77 +275,11 @@
 
     invoke-static {v1, v4, v3}, LM/d;->P(LM/p;LR3/e;Ljava/lang/Object;)V
 
-    check-cast v8, LR3/c;
+    check-cast v8, LR3/a;
 
-    invoke-virtual {v1, v8}, LM/p;->f(Ljava/lang/Object;)Z
-
-    move-result v3
-
-    invoke-virtual {v1}, LM/p;->G()Ljava/lang/Object;
-
-    move-result-object v4
-
-    sget-object v5, LM/l;->a:LM/T;
-
-    if-nez v3, :cond_7
-
-    if-ne v4, v5, :cond_8
-
-    :cond_7
-    new-instance v4, Lp3/y;
-
-    invoke-direct {v4, v8, v2}, Lp3/y;-><init>(LR3/c;I)V
-
-    invoke-virtual {v1, v4}, LM/p;->a0(Ljava/lang/Object;)V
-
-    :cond_8
-    move-object/from16 v29, v4
-
-    check-cast v29, LR3/a;
+    move-object/from16 v29, v8
 
     sget-object v37, Lp3/s;->j:LU/b;
-
-    const-wide/16 v34, 0x0
-
-    const/16 v36, 0x0
-
-    const/16 v30, 0x0
-
-    const/16 v31, 0x0
-
-    const-wide/16 v32, 0x0
-
-    const/high16 v39, 0xc00000
-
-    move-object/from16 v38, v1
-
-    invoke-static/range {v29 .. v39}, LJ/I0;->a(LR3/a;LY/m;Lf0/P;JJLJ/D0;LU/b;LM/p;I)V
-
-    invoke-virtual {v1, v8}, LM/p;->f(Ljava/lang/Object;)Z
-
-    move-result v2
-
-    invoke-virtual {v1}, LM/p;->G()Ljava/lang/Object;
-
-    move-result-object v3
-
-    if-nez v2, :cond_9
-
-    if-ne v3, v5, :cond_a
-
-    :cond_9
-    new-instance v3, Lp3/y;
-
-    invoke-direct {v3, v8, v6}, Lp3/y;-><init>(LR3/c;I)V
-
-    invoke-virtual {v1, v3}, LM/p;->a0(Ljava/lang/Object;)V
-
-    :cond_a
-    move-object/from16 v29, v3
-
-    check-cast v29, LR3/a;
-
-    sget-object v37, Lp3/s;->k:LU/b;
 
     const-wide/16 v34, 0x0
 

@@ -108,6 +108,14 @@
 
     if-nez v1, :cond_5
 
+    iget-object v1, p0, Lp3/m;->f:Lw/u;
+
+    invoke-virtual {v1}, Lw/u;->d()Z
+
+    move-result v1
+
+    if-eqz v1, :cond_5
+
     iget-object p1, p1, Lr3/a;->b:Ljava/util/List;
 
     invoke-static {p1}, LA2/S0;->d(Ljava/util/List;)I

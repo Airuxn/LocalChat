@@ -97,7 +97,7 @@
 
     const/16 v38, 0x6
 
-    const-string v21, "Models"
+    const-string v21, "Choose model"
 
     const/16 v22, 0x0
 
@@ -706,7 +706,7 @@
 
     const-wide/16 v3, 0x0
 
-    const-string v1, "New coding chat"
+    const-string v1, "Choose model"
 
     const/16 v6, 0x30
 
@@ -1477,7 +1477,7 @@
 
     const-wide/16 v3, 0x0
 
-    const-string v1, "Models"
+    const-string v1, "Choose model"
 
     const/16 v6, 0x30
 
@@ -1524,7 +1524,7 @@
 
     const/16 v35, 0x6
 
-    const-string v18, "LocalChat"
+    const-string v18, "New chat"
 
     const/16 v19, 0x0
 

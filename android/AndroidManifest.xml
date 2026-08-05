@@ -10,12 +10,13 @@
         <provider android:authorities="com.localllm.chat.fileprovider" android:exported="false" android:grantUriPermissions="true" android:name="androidx.core.content.FileProvider">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths"/>
         </provider>
-        <activity android:exported="true" android:name="com.localllm.chat.MainActivity" android:theme="@style/Theme.LocalChat" android:windowSoftInputMode="adjustResize">
+        <activity android:exported="true" android:name="com.localllm.chat.onboarding.OnboardingActivity" android:theme="@style/Theme.LocalChat">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:exported="false" android:name="com.localllm.chat.MainActivity" android:theme="@style/Theme.LocalChat" android:windowSoftInputMode="adjustResize"/>
         <service android:directBootAware="true" android:exported="false" android:name="com.google.mlkit.common.internal.MlKitComponentDiscoveryService">
             <meta-data android:name="com.google.firebase.components:com.google.mlkit.vision.objects.defaults.internal.DefaultObjectsRegistrar" android:value="com.google.firebase.components.ComponentRegistrar"/>
             <meta-data android:name="com.google.firebase.components:com.google.mlkit.vision.label.defaults.internal.BundledLabelRegistrar" android:value="com.google.firebase.components.ComponentRegistrar"/>

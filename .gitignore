@@ -13,3 +13,7 @@ android/build/
 
 # Apktool jar (download via scripts/setup-tools.sh)
 tools/apktool.jar
+tools/baksmali.jar
+
+# Onboarding compile output
+build/

@@ -2803,7 +2803,7 @@
     :goto_6
     new-instance v7, Lo3/f;
 
-    invoke-direct {v7, v5, v6}, Lo3/f;-><init>(LR3/a;LR3/a;)V
+    invoke-direct {v7, v3, v6}, Lo3/f;-><init>(LR3/a;LR3/a;)V
 
     const v8, -0x5958acad
 
@@ -2815,7 +2815,7 @@
 
     const/4 v9, 0x3
 
-    invoke-direct {v7, v9, v3}, Lh4/C;-><init>(ILjava/lang/Object;)V
+    invoke-direct {v7, v9, v5}, Lh4/C;-><init>(ILjava/lang/Object;)V
 
     const v9, -0x9aa1fd0
 
