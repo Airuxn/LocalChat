@@ -14,8 +14,8 @@ android {
         applicationId = "com.localllm.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.1.0"
+        versionCode = 4
+        versionName = "2.1.1"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -33,6 +33,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Lets CI / x86 emulators exercise startup (inference still arm64-only in jniLibs).
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(

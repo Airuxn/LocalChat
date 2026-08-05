@@ -1,1 +1,27 @@
+# LlamaBro JNI / engine
 -keep class com.suhel.llamabro.sdk.engine.internal.** { *; }
+-keep class com.suhel.llamabro.sdk.** { *; }
+
+# Room (release minify must keep entities + generated DAO impls)
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-keep class com.localllm.chat.data.db.** { *; }
+
+# Application entry points
+-keep class com.localllm.chat.LocalChatApp { *; }
+-keep class com.localllm.chat.MainActivity { *; }
+
+# Compose / ViewModels
+-keep class com.localllm.chat.ui.** { *; }
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}
+
+# ML Kit vision (initialized via MlKitInitProvider at process start)
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.android.gms.**
+
+# Kotlin serialization used by model catalog
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**

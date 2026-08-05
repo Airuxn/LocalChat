@@ -3,6 +3,7 @@ package com.localllm.chat.data
 import android.content.Context
 import androidx.room.Room
 import com.localllm.chat.data.db.AppDatabase
+import com.localllm.chat.data.db.AppDatabaseMigrations
 import com.localllm.chat.data.repo.ChatRepository
 import com.localllm.chat.data.repo.MemoryRepository
 import com.localllm.chat.data.repo.ModelRepository
@@ -18,7 +19,9 @@ class AppContainer(context: Context) {
         appContext,
         AppDatabase::class.java,
         "localchat.db",
-    ).build()
+    )
+        .addMigrations(*AppDatabaseMigrations.ALL)
+        .build()
 
     val settingsRepository = SettingsRepository(appContext)
     val onboardingRepository = OnboardingRepository(
