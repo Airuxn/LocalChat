@@ -21,6 +21,8 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setMemoryEnabled(v: Boolean) = viewModelScope.launch { container.settingsRepository.updateMemoryEnabled(v) }
     fun setEburonToolsEnabled(v: Boolean) = viewModelScope.launch { container.settingsRepository.updateEburonToolsEnabled(v) }
     fun setOllamaApiKey(v: String) = viewModelScope.launch { container.settingsRepository.updateOllamaApiKey(v) }
+    fun setShowThinking(v: Boolean) = viewModelScope.launch { container.settingsRepository.updateShowThinking(v) }
+    fun setDarkTheme(v: Boolean?) = viewModelScope.launch { container.settingsRepository.updateDarkTheme(v) }
 }
 
 class SettingsViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {

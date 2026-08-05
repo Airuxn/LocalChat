@@ -55,5 +55,14 @@ object ModelProfiles {
     val QWEN_2_5: ModelProfile = chatMl
     val LLAMA_3_2: ModelProfile = ModelProfile(PromptFormats.LLAMA_3, InferenceConfig(topP = 0.9f, minP = 0.05f))
     val GEMMA: ModelProfile = ModelProfile(PromptFormats.GEMMA, InferenceConfig(topP = 0.9f, minP = 0f))
-    val QWEN_3_5: ModelProfile = ModelProfile(PromptFormats.CHAT_ML, InferenceConfig(1.0f, presencePenalty = 1.5f, topP = 0.95f, temperature = 1.0f))
+    val QWEN_3_5: ModelProfile = ModelProfile(
+        PromptFormats.CHAT_ML,
+        InferenceConfig(
+            repeatPenalty = 1.0f,
+            presencePenalty = 1.5f,
+            topK = 20,
+            topP = 0.95f,
+            temperature = 1.0f,
+        ),
+    )
 }

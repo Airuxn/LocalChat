@@ -16,13 +16,15 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 
 data class SettingsState(
     val temperature: Float = 0.7f,
-    val contextSize: Int = 2048,
+    val contextSize: Int = 6144,
     val maxTokens: Int = 512,
     val systemPromptOverride: String = "",
     val showThinking: Boolean = true,
     val memoryEnabled: Boolean = true,
     val eburonToolsEnabled: Boolean = true,
     val ollamaApiKey: String = "",
+    /** null = follow system; true/false = override (v1 dark theme toggle). */
+    val darkTheme: Boolean? = null,
 )
 
 class SettingsRepository(private val context: Context) {
@@ -35,18 +37,20 @@ class SettingsRepository(private val context: Context) {
         val memoryEnabled = booleanPreferencesKey("memory_enabled")
         val eburonToolsEnabled = booleanPreferencesKey("eburon_tools_enabled")
         val ollamaApiKey = stringPreferencesKey("ollama_api_key")
+        val darkTheme = booleanPreferencesKey("dark_theme")
     }
 
     val settings: Flow<SettingsState> = context.settingsDataStore.data.map { prefs ->
         SettingsState(
             temperature = prefs[Keys.temperature] ?: 0.7f,
-            contextSize = prefs[Keys.contextSize] ?: 2048,
+            contextSize = prefs[Keys.contextSize] ?: 6144,
             maxTokens = prefs[Keys.maxTokens] ?: 512,
             systemPromptOverride = prefs[Keys.systemPrompt] ?: "",
             showThinking = prefs[Keys.showThinking] ?: true,
             memoryEnabled = prefs[Keys.memoryEnabled] ?: true,
             eburonToolsEnabled = prefs[Keys.eburonToolsEnabled] ?: true,
             ollamaApiKey = prefs[Keys.ollamaApiKey] ?: "",
+            darkTheme = prefs[Keys.darkTheme],
         )
     }
 
@@ -57,6 +61,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateMemoryEnabled(value: Boolean) = edit { it[Keys.memoryEnabled] = value }
     suspend fun updateEburonToolsEnabled(value: Boolean) = edit { it[Keys.eburonToolsEnabled] = value }
     suspend fun updateOllamaApiKey(value: String) = edit { it[Keys.ollamaApiKey] = value }
+    suspend fun updateShowThinking(value: Boolean) = edit { it[Keys.showThinking] = value }
+    suspend fun updateDarkTheme(value: Boolean?) = edit {
+        if (value == null) it.remove(Keys.darkTheme) else it[Keys.darkTheme] = value
+    }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.settingsDataStore.edit(block)

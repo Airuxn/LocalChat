@@ -38,10 +38,30 @@ object PromptFormatter {
             append(format.systemPrefix)
             append(systemPrompt.trim())
             append(format.turnSuffix)
-            append(format.userPrefix)
-            append(userMessage.trim())
-            append(format.turnSuffix)
-            append(format.assistantPrefix)
+            appendUserAssistantPrime(format, userMessage, qwen35ThinkingPrefill = false)
+        }
+    }
+
+    /** User turn when system prompt was already set via SessionJni.setSystemPrompt (v1 behaviour). */
+    fun formatUserOnly(
+        format: PromptFormat,
+        userMessage: String,
+        qwen35ThinkingPrefill: Boolean = false,
+    ): String = buildString {
+        appendUserAssistantPrime(format, userMessage, qwen35ThinkingPrefill)
+    }
+
+    private fun StringBuilder.appendUserAssistantPrime(
+        format: PromptFormat,
+        userMessage: String,
+        qwen35ThinkingPrefill: Boolean,
+    ) {
+        append(format.userPrefix)
+        append(userMessage.trim())
+        append(format.turnSuffix)
+        append(format.assistantPrefix)
+        if (qwen35ThinkingPrefill) {
+            append("<think>\n\n</think>")
         }
     }
 }

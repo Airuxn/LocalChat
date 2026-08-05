@@ -9,8 +9,10 @@ import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.tools.EburonToolExecutor
 import com.localllm.chat.tools.ToolCallParser
 import com.localllm.chat.tools.VisionAnalyzer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
 class ChatEngine(
     private val context: Context,
@@ -69,6 +71,7 @@ class ChatEngine(
                 chunk.append(token)
                 emit(token)
             }
+            val visible = ToolCallParser.stripThinking(ToolCallParser.stripToolCalls(chunk.toString()))
             if (!isEburonModel(model) || !settings.eburonToolsEnabled) break
             val calls = ToolCallParser.extractCalls(chunk.toString())
             if (calls.isEmpty()) break
@@ -81,10 +84,12 @@ class ChatEngine(
                     visionAnalyze = { bytes, p -> VisionAnalyzer.analyze(context, bytes, p) },
                 )
                 followUp = EburonToolExecutor.formatToolResponse(result)
-                emit("\n\n$followUp\n\n")
+                if (visible.isNotBlank()) emit("\n\n")
+                emit(EburonToolExecutor.formatToolResponse(result))
+                emit("\n\n")
             }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     private fun isEburonModel(model: ModelEntity): Boolean =
         model.name.contains("eburon", ignoreCase = true) ||

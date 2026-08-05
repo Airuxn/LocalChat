@@ -1,6 +1,6 @@
 package com.localllm.chat.ui
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -27,13 +27,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.localllm.chat.data.AppContainer
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.localllm.chat.data.AppContainer
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SmallFloatingActionButton
+import com.localllm.chat.data.repo.SettingsState
+import com.localllm.chat.ui.theme.LocalChatTheme
 import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.ui.chat.ChatScreen
 import com.localllm.chat.ui.chat.ChatViewModel
@@ -57,6 +64,14 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LocalChatAppRoot(container: AppContainer) {
+    val settings by container.settingsRepository.settings.collectAsState(initial = SettingsState())
+    LocalChatTheme(darkTheme = settings.darkTheme) {
+        LocalChatAppContent(container)
+    }
+}
+
+@Composable
+private fun LocalChatAppContent(container: AppContainer) {
     var needsOnboarding by remember { mutableStateOf<Boolean?>(null) }
 
     LaunchedEffect(container) {
@@ -113,40 +128,13 @@ private fun HomeRoute(container: AppContainer, navController: androidx.navigatio
     val vm: HomeViewModel = viewModel(factory = HomeViewModelFactory(container))
     val conversations by vm.conversations.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
-    var showModePicker by remember { mutableStateOf(false) }
-
-    if (showModePicker) {
-        AlertDialog(
-            onDismissRequest = { showModePicker = false },
-            title = { Text("New chat") },
-            text = { Text("Choose chat mode") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showModePicker = false
-                    scope.launch {
-                        val id = vm.createChat(ChatMode.CHAT)
-                        navController.navigate("chat/$id")
-                    }
-                }) { Text("Chat") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showModePicker = false
-                    scope.launch {
-                        val id = vm.createChat(ChatMode.CODING)
-                        navController.navigate("chat/$id")
-                    }
-                }) { Text("Coding") }
-            },
-        )
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("LocalChat") },
                 actions = {
-                    TextButton(onClick = { navController.navigate("models") }) { Text("Choose model") }
+                    TextButton(onClick = { navController.navigate("models") }) { Text("Models") }
                     IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -154,8 +142,27 @@ private fun HomeRoute(container: AppContainer, navController: androidx.navigatio
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showModePicker = true }) {
-                Icon(Icons.Default.Add, contentDescription = "New chat")
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SmallFloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            val id = vm.createChat(ChatMode.CODING)
+                            navController.navigate("chat/$id")
+                        }
+                    },
+                ) {
+                    Icon(Icons.Default.Code, contentDescription = "New coding chat")
+                }
+                FloatingActionButton(
+                    onClick = {
+                        scope.launch {
+                            val id = vm.createChat(ChatMode.CHAT)
+                            navController.navigate("chat/$id")
+                        }
+                    },
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "New chat")
+                }
             }
         },
     ) { padding ->
@@ -196,6 +203,8 @@ private fun SettingsRoute(container: AppContainer, navController: androidx.navig
         onMemoryEnabled = vm::setMemoryEnabled,
         onEburonToolsEnabled = vm::setEburonToolsEnabled,
         onOllamaApiKey = vm::setOllamaApiKey,
+        onShowThinking = vm::setShowThinking,
+        onDarkTheme = vm::setDarkTheme,
         onOpenMemory = { navController.navigate("memory") },
     )
 }
@@ -228,16 +237,20 @@ private fun ChatRoute(
     val settings by container.settingsRepository.settings.collectAsState(
         initial = com.localllm.chat.data.repo.SettingsState(),
     )
+    val isLoadingModel by vm.isLoadingModel.collectAsState()
     ChatScreen(
         messages = messages,
         streamingText = streaming,
         isGenerating = isGenerating,
+        isLoadingModel = isLoadingModel,
         chatModeLabel = chatMode.label,
         eburonToolsHint = settings.eburonToolsEnabled,
+        showThinking = settings.showThinking,
         snackbarMessage = snackbar,
         onClearSnackbar = vm::clearSnackbar,
         onBack = { navController.popBackStack() },
         onSend = vm::send,
+        onStop = vm::stopGenerating,
         onAttachImage = vm::attachImage,
         onSaveLastAssistant = vm::saveLastAssistantToMemory,
     )

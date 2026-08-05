@@ -7,6 +7,8 @@ import com.localllm.chat.data.AppContainer
 import com.localllm.chat.data.db.MessageEntity
 import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.onboarding.OnboardingModelMapper
+import com.localllm.chat.tools.ToolCallParser
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +31,9 @@ class ChatViewModel(
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
+    private val _isLoadingModel = MutableStateFlow(false)
+    val isLoadingModel: StateFlow<Boolean> = _isLoadingModel.asStateFlow()
+
     private val _snackbar = MutableStateFlow<String?>(null)
     val snackbar: StateFlow<String?> = _snackbar.asStateFlow()
 
@@ -36,6 +41,7 @@ class ChatViewModel(
     val chatMode: StateFlow<ChatMode> = _chatMode.asStateFlow()
 
     private var attachedImage: ByteArray? = null
+    private var generateJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -53,6 +59,13 @@ class ChatViewModel(
         _snackbar.value = null
     }
 
+    fun stopGenerating() {
+        container.llmRuntime.abortGeneration()
+        generateJob?.cancel()
+        _isGenerating.value = false
+        _isLoadingModel.value = false
+    }
+
     fun saveLastAssistantToMemory(content: String) {
         viewModelScope.launch {
             try {
@@ -65,14 +78,16 @@ class ChatViewModel(
     }
 
     fun send(text: String) {
-        viewModelScope.launch {
+        generateJob?.cancel()
+        generateJob = viewModelScope.launch {
             val model = container.modelRepository.getActiveModel()
                 ?: run {
-                    _streamingText.value = "No model loaded. Download one from Choose model."
+                    _snackbar.value = "No model loaded. Open Models and download one."
                     return@launch
                 }
             container.chatRepository.addMessage(conversationId, "user", text)
             _isGenerating.value = true
+            _isLoadingModel.value = true
             _streamingText.value = ""
             val buffer = StringBuilder()
             try {
@@ -92,6 +107,7 @@ class ChatViewModel(
                 )
                 val image = attachedImage
                 attachedImage = null
+                _isLoadingModel.value = false
                 container.chatEngine.sendMessage(
                     model = model,
                     mode = _chatMode.value,
@@ -104,12 +120,25 @@ class ChatViewModel(
                     buffer.append(token)
                     _streamingText.value = buffer.toString()
                 }
-                container.chatRepository.addMessage(conversationId, "assistant", buffer.toString())
+                val raw = buffer.toString()
+                val thinkingMatch = Regex("""<\s*redacted_thinking\s*>([\s\S]*?)</\s*redacted_thinking\s*>""", RegexOption.IGNORE_CASE)
+                    .find(raw)
+                val thinking = thinkingMatch?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
+                val visible = ToolCallParser.stripToolCalls(ToolCallParser.stripThinking(raw))
+                if (visible.isNotBlank()) {
+                    container.chatRepository.addMessage(
+                        conversationId,
+                        "assistant",
+                        visible,
+                        thinking = thinking,
+                    )
+                }
             } catch (e: Exception) {
-                _streamingText.value = "Error: ${e.message}"
+                _snackbar.value = e.message ?: "Generation failed"
             } finally {
                 _streamingText.value = ""
                 _isGenerating.value = false
+                _isLoadingModel.value = false
             }
         }
     }

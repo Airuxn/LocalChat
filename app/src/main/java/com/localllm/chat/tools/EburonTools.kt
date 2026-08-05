@@ -1,5 +1,7 @@
 package com.localllm.chat.tools
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -10,12 +12,13 @@ import java.net.URLEncoder
 data class SearchResult(val title: String, val url: String, val snippet: String)
 
 object WebSearchClient {
-    suspend fun search(query: String, maxResults: Int = 5, ollamaApiKey: String? = null): String {
-        if (!ollamaApiKey.isNullOrBlank()) {
-            ollamaSearch(query, maxResults, ollamaApiKey)?.let { return it }
+    suspend fun search(query: String, maxResults: Int = 5, ollamaApiKey: String? = null): String =
+        withContext(Dispatchers.IO) {
+            if (!ollamaApiKey.isNullOrBlank()) {
+                ollamaSearch(query, maxResults, ollamaApiKey)?.let { return@withContext it }
+            }
+            duckDuckGoSearch(query, maxResults)
         }
-        return duckDuckGoSearch(query, maxResults)
-    }
 
     private fun ollamaSearch(query: String, maxResults: Int, apiKey: String): String? {
         return try {
@@ -60,7 +63,7 @@ object WebSearchClient {
             requestMethod = "GET"
             connectTimeout = 10_000
             readTimeout = 12_000
-            setRequestProperty("User-Agent", "LocalChat/2.0 (Android)")
+            setRequestProperty("User-Agent", "LocalChat/2.2 (Android)")
         }
         conn.connect()
         val text = conn.inputStream.bufferedReader().readText()
@@ -97,7 +100,7 @@ object WebSearchClient {
         val conn = (URL("https://html.duckduckgo.com/html/?q=$encoded").openConnection() as HttpURLConnection).apply {
             connectTimeout = 12_000
             readTimeout = 15_000
-            setRequestProperty("User-Agent", "LocalChat/2.0 (Android)")
+            setRequestProperty("User-Agent", "LocalChat/2.2 (Android)")
         }
         val html = BufferedReader(InputStreamReader(conn.inputStream)).readText()
         val linkRe = Regex("""<a rel="nofollow" class="result__a" href="([^"]+)"[^>]*>([\s\S]*?)</a>""")
@@ -133,18 +136,25 @@ object WebSearchClient {
 object ToolCallParser {
     private val toolBlock = Regex("""<tool_call>([\s\S]*?)</tool_call>""", RegexOption.IGNORE_CASE)
     private val fnTag = Regex("""<(\w+)=([^>]+)>""")
+    private val v1Function = Regex("""<function=(\w+)>""", RegexOption.IGNORE_CASE)
+    private val v1Parameter = Regex("""<parameter=(\w+)>\s*([\s\S]*?)\s*</parameter>""", RegexOption.IGNORE_CASE)
 
     data class ParsedTool(val name: String, val argsJson: String)
 
     fun extractCalls(text: String): List<ParsedTool> {
         val calls = mutableListOf<ParsedTool>()
         toolBlock.findAll(text).forEach { block ->
+            val inner = block.groupValues[1]
+            parseV1FunctionBlock(inner)?.let { calls.add(it) }
+        }
+        if (calls.isNotEmpty()) return calls
+
+        toolBlock.findAll(text).forEach { block ->
             fnTag.findAll(block.groupValues[1]).forEach { m ->
                 calls.add(ParsedTool(m.groupValues[1], m.groupValues[2].trim()))
             }
         }
         if (calls.isEmpty()) {
-            // Fallback: JSON inside tool_call
             toolBlock.findAll(text).forEach { block ->
                 val inner = block.groupValues[1].trim()
                 runCatching {
@@ -156,7 +166,19 @@ object ToolCallParser {
         return calls
     }
 
+    private fun parseV1FunctionBlock(inner: String): ParsedTool? {
+        val fn = v1Function.find(inner)?.groupValues?.get(1) ?: return null
+        val args = JSONObject()
+        v1Parameter.findAll(inner).forEach { m ->
+            args.put(m.groupValues[1], m.groupValues[2].trim())
+        }
+        return ParsedTool(fn, args.toString())
+    }
+
     fun stripToolCalls(text: String): String = toolBlock.replace(text, "").trim()
+
+    fun stripThinking(text: String): String =
+        text.replace(Regex("""<\s*redacted_thinking\s*>[\s\S]*?</\s*redacted_thinking\s*>""", RegexOption.IGNORE_CASE), "").trim()
 
     fun argString(argsJson: String, key: String, default: String = ""): String = try {
         JSONObject(argsJson).optString(key, default)
@@ -172,21 +194,31 @@ object ToolCallParser {
 }
 
 object EburonToolExecutor {
+    /** Ollama-style tool appendix — matches v1 `l3/o.smali`. */
     fun toolsPromptAppendix(): String = """
-        
-        Available tools (Ollama-style):
-        - web_search: search the web for current information. Args: query (string), max_results (int, optional)
-        - vision: analyze attached photo. Args: prompt (string)
-        
-        To call a tool, output:
+
+        <tools>
+        {"type":"function","function":{"name":"web_search","description":"Search the web for current information.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Search query"},"max_results":{"type":"integer","description":"Max results (default 5)"}},"required":["query"]}}}
+        {"type":"function","function":{"name":"vision","description":"Analyze an attached image with on-device vision.","parameters":{"type":"object","properties":{"prompt":{"type":"string","description":"What to analyze"}},"required":["prompt"]}}}
+        </tools>
+
+        If you choose to call a function ONLY reply in the following format with NO suffix:
+
         <tool_call>
-        <web_search={"query":"your query","max_results":5}>
+        <function=example_function_name>
+        <parameter=example_parameter_1>
+        value_1
+        </parameter>
+        </function>
         </tool_call>
-        
-        Or for vision:
-        <tool_call>
-        <vision={"prompt":"what to look for"}>
-        </tool_call>
+
+        Reminder:
+        - Function calls MUST follow the specified format: an inner <function=...> block must be nested within <tool_call></tool_call> XML tags
+        - Required parameters MUST be specified
+        - You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after
+        - If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls
+        - Do NOT call web_search when the user only asks whether you can search, what tools you have, or about your capabilities — answer those questions directly in plain language
+        - Only call web_search when the user asks for current information, trends, or facts you need to look up online
     """.trimIndent()
 
     suspend fun execute(
