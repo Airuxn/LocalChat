@@ -30,3 +30,4 @@ The legacy `android/smali` apktool tree remains for reference only.
 - `models.json` is copied to `app/src/main/assets/models.json` at build time (keep root `models.json` in sync manually or via script)
 - Release signing: `LOCALCHAT_KEYSTORE_PASS` + optional `LOCALCHAT_KEYSTORE` / `LOCALCHAT_KEY_ALIAS`; see `app/build.gradle.kts`
 - Inference is 100% on-device; Gradle migration does not add cloud dependencies
+- **Chat / LLM:** match v1 `android/smali/l3/o.smali` + `LlamaChatSessionImpl` — use `createChatSession` → `initialize` (formatted `setPrefixedPrompt`) → `feedHistory` → `completion()`. Do not call `session.clear()` per message or pass raw system text to JNI.
