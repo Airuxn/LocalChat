@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -89,19 +90,23 @@ fun OnboardingScreen(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .navigationBarsPadding(),
             ) {
                 StepIndicator(state.step)
                 Spacer(Modifier.height(20.dp))
                 AnimatedContent(
                     targetState = state.step,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
                     transitionSpec = {
                         (slideInHorizontally { it / 3 } + fadeIn()) togetherWith
                             (slideOutHorizontally { -it / 3 } + fadeOut())
                     },
                     label = "onboarding-step",
                 ) { step ->
-                    Column(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxSize()) {
                         Text(
                             stepTitle(step),
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
@@ -115,6 +120,7 @@ fun OnboardingScreen(
                         Column(
                             Modifier
                                 .weight(1f)
+                                .fillMaxWidth()
                                 .verticalScroll(rememberScrollState()),
                         ) {
                             when (step) {
@@ -136,7 +142,9 @@ fun OnboardingScreen(
                 }
 
                 Row(
-                    Modifier.fillMaxWidth(),
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
