@@ -1,0 +1,1 @@
+-keep class com.suhel.llamabro.sdk.engine.internal.** { *; }

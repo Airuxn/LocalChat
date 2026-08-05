@@ -1,0 +1,74 @@
+[
+  {
+    "id": "qwen2.5-0.5b-q4",
+    "name": "Qwen 2.5 0.5B",
+    "description": "Fast and lightweight — great first model for most phones.",
+    "sizeLabel": "~400 MB",
+    "minRamLabel": "4 GB RAM",
+    "fileName": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+    "promptFormat": "CHAT_ML"
+  },
+  {
+    "id": "llama3.2-1b-q4",
+    "name": "Llama 3.2 1B",
+    "description": "Better quality than 0.5B models, still mobile-friendly.",
+    "sizeLabel": "~770 MB",
+    "minRamLabel": "6 GB RAM",
+    "fileName": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "promptFormat": "LLAMA_3"
+  },
+  {
+    "id": "gemma2-2b-q4",
+    "name": "Gemma 2 2B",
+    "description": "Strong small model from Google — needs more RAM.",
+    "sizeLabel": "~1.6 GB",
+    "minRamLabel": "8 GB RAM",
+    "fileName": "gemma-2-2b-it-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+    "promptFormat": "GEMMA"
+  },
+  {
+    "id": "qwen2.5-1.5b-q4",
+    "name": "Qwen 2.5 1.5B",
+    "description": "Balanced speed and quality for mid-range phones.",
+    "sizeLabel": "~1.0 GB",
+    "minRamLabel": "6 GB RAM",
+    "fileName": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+    "promptFormat": "CHAT_ML"
+  },
+  {
+    "id": "eburon-media",
+    "name": "Eburon",
+    "description": "Same as Ollama media-pipe/eburon — Qwen 3.5 0.8B with web search + vision (photo attach).",
+    "sizeLabel": "~1.0 GB",
+    "minRamLabel": "6 GB RAM",
+    "fileName": "qwen3.5-0.8b-ollama-eburon.gguf",
+    "downloadUrl": "https://registry.ollama.ai/v2/library/qwen3.5/blobs/sha256:afb707b6b8fac6e475acc42bc8380fc0b8d2e0e4190be5a969fbf62fcc897db5",
+    "promptFormat": "QWEN_3_5",
+    "expectedMinBytes": 1048576000,
+    "expectedExactBytes": 1036034688
+  },
+  {
+    "id": "dolphin3-llama3.2-1b-uncensored",
+    "name": "Dolphin 3.0 1B (Uncensored)",
+    "description": "ChatML uncensored model — set a system prompt in Models to reduce self-intro.",
+    "sizeLabel": "~810 MB",
+    "minRamLabel": "6 GB RAM",
+    "fileName": "Dolphin3.0-Llama3.2-1B-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Dolphin3.0-Llama3.2-1B-GGUF/resolve/main/Dolphin3.0-Llama3.2-1B-Q4_K_M.gguf",
+    "promptFormat": "CHAT_ML"
+  },
+  {
+    "id": "dolphin3-llama3.2-3b-uncensored",
+    "name": "Dolphin 3.0 3B (Uncensored)",
+    "description": "ChatML uncensored model — set a system prompt in Models to reduce self-intro.",
+    "sizeLabel": "~2.0 GB",
+    "minRamLabel": "8 GB RAM",
+    "fileName": "Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Dolphin3.0-Llama3.2-3B-GGUF/resolve/main/Dolphin3.0-Llama3.2-3B-Q4_K_M.gguf",
+    "promptFormat": "CHAT_ML"
+  }
+]

@@ -27,19 +27,30 @@ gh release download v1.0.0 --repo Airuxn/LocalChat -p app-release.apk --clobber
 
 ## Source code status
 
-The original Kotlin/Compose project was never committed. This repo holds the **maintainable apktool tree** used to build releases:
+LocalChat is now a **standard Gradle + Kotlin + Compose** project (Route C). The legacy apktool/smali tree under `android/` remains for reference only.
 
 | Layer | Location |
 |-------|----------|
-| App logic (smali) | `android/smali/` |
-| Native libs (llama.cpp) | `android/lib/` |
-| Resources & assets | `android/res/`, `android/assets/` |
-| Model download catalog | `models.json` → `android/smali/i3/f.smali` |
-| Build scripts | `scripts/` |
+| App (Kotlin + Compose) | `app/src/main/java/` |
+| llama.cpp JNI SDK | `llama-bro-sdk/` |
+| Native libs | `app/src/main/jniLibs/arm64-v8a/` |
+| Model catalog | `models.json` → `app/src/main/assets/` |
+| Legacy smali (reference) | `android/smali/` |
 
 ---
 
 ## Rebuild locally (maintainers)
+
+**Preferred (Kotlin / Gradle — Route C):**
+
+```bash
+./gradlew :app:assembleDebug      # → app/build/outputs/apk/debug/
+./gradlew :app:assembleRelease    # release APK
+```
+
+See [MIGRATION.md](MIGRATION.md) for migration status.
+
+**Legacy (apktool smali tree — deprecated for new features):**
 
 ```bash
 bash scripts/setup-tools.sh
@@ -57,9 +68,13 @@ To add or change downloadable models, edit `models.json` and update `android/sma
 
 | Path | Description |
 |------|-------------|
-| `android/` | Apktool decode (smali, libs, resources) |
+| `app/` | **Kotlin + Compose app** (Route C — primary) |
+| `llama-bro-sdk/` | On-device llama.cpp JNI library |
+| `android/` | Legacy apktool decode (smali, libs, resources) |
 | `models.json` | Model catalog metadata |
-| `scripts/rebuild-apk.sh` | Build → align → sign |
+| `MIGRATION.md` | Smali → Gradle migration guide |
+| `scripts/gradle-assemble.sh` | Gradle debug build helper |
+| `scripts/rebuild-apk.sh` | Legacy apktool build → align → sign |
 | `scripts/verify-apk.sh` | Post-build checks |
 | `scripts/release.sh` | Build + publish release |
 | `SECURITY.md` | Security & privacy |

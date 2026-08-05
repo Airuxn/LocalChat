@@ -4,6 +4,15 @@ android/build/
 *.apk
 !android/**/*.apk
 
+# Gradle / Kotlin
+.gradle/
+app/build/
+llama-bro-sdk/build/
+local.properties
+jadx-out/
+llama-bro-sdk-decompiled/
+build/
+
 # Signing (generate locally; never commit real release keys)
 *.keystore
 *.jks
@@ -13,3 +22,4 @@ android/build/
 
 # Apktool jar (download via scripts/setup-tools.sh)
 tools/apktool.jar
+tools/baksmali.jar
