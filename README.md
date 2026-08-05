@@ -2,7 +2,7 @@
 
 On-device LLM chat for **Android (arm64)** — private AI on your phone, no cloud required for inference.
 
-**Package:** `com.localllm.chat` · **Latest:** [v1.0.0 (build 1)](https://github.com/Airuxn/LocalChat/releases/latest)
+**Package:** `com.localllm.chat` · **Latest:** [v2.0.0](https://github.com/Airuxn/LocalChat/releases/latest)
 
 ---
 
@@ -20,7 +20,8 @@ On-device LLM chat for **Android (arm64)** — private AI on your phone, no clou
 Download the APK from [Releases](https://github.com/Airuxn/LocalChat/releases/latest), then open it with your file manager (arm64, Android 8+).
 
 ```bash
-gh release download v1.0.0 --repo Airuxn/LocalChat -p app-release.apk --clobber
+```bash
+gh release download v2.0.0 --repo Airuxn/LocalChat -p app-release.apk --clobber
 ```
 
 ---
@@ -45,7 +46,9 @@ LocalChat is now a **standard Gradle + Kotlin + Compose** project (Route C). The
 
 ```bash
 ./gradlew :app:assembleDebug      # → app/build/outputs/apk/debug/
-./gradlew :app:assembleRelease    # release APK
+export LOCALCHAT_KEYSTORE_PASS='your-local-password'
+bash scripts/gradle-release.sh    # → dist/app-release.apk (signed)
+bash scripts/release.sh           # build + GitHub release
 ```
 
 See [MIGRATION.md](MIGRATION.md) for migration status.
@@ -74,6 +77,7 @@ To add or change downloadable models, edit `models.json` and update `android/sma
 | `models.json` | Model catalog metadata |
 | `MIGRATION.md` | Smali → Gradle migration guide |
 | `scripts/gradle-assemble.sh` | Gradle debug build helper |
+| `scripts/gradle-release.sh` | Gradle signed release → `dist/app-release.apk` |
 | `scripts/rebuild-apk.sh` | Legacy apktool build → align → sign |
 | `scripts/verify-apk.sh` | Post-build checks |
 | `scripts/release.sh` | Build + publish release |
@@ -83,8 +87,7 @@ To add or change downloadable models, edit `models.json` and update `android/sma
 
 ## Stack
 
-- Kotlin / Jetpack Compose (original); maintained as smali
-- llama.cpp · ML Kit vision · Room · minSdk 26 · targetSdk 36
+- Kotlin / Jetpack Compose · llama.cpp JNI · Room · minSdk 26 · targetSdk 36
 
 ---
 

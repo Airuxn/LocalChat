@@ -21,6 +21,17 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            val keystorePath = System.getenv("LOCALCHAT_KEYSTORE")
+                ?: rootProject.file("localchat-release.keystore").absolutePath
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("LOCALCHAT_KEYSTORE_PASS").orEmpty()
+            keyAlias = System.getenv("LOCALCHAT_KEY_ALIAS") ?: "localchat"
+            keyPassword = System.getenv("LOCALCHAT_KEYSTORE_PASS").orEmpty()
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -28,6 +39,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            val releasePass = System.getenv("LOCALCHAT_KEYSTORE_PASS")
+            if (!releasePass.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

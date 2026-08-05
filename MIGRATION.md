@@ -20,7 +20,9 @@ scripts/rebuild-apk.sh  # LEGACY apktool build — use Gradle instead
 
 ```bash
 ./gradlew :app:assembleDebug          # dev APK
-./gradlew :app:assembleRelease        # release (configure signing in app/build.gradle.kts)
+export LOCALCHAT_KEYSTORE_PASS='your-local-password'
+bash scripts/gradle-release.sh        # signed release → dist/app-release.apk
+bash scripts/release.sh               # build + GitHub release
 ```
 
 Output: `app/build/outputs/apk/`
@@ -34,7 +36,7 @@ Requirements: JDK 17+, Android SDK with platform 36 and build-tools 35+.
 | Gradle multi-module | Done |
 | llama-bro-sdk (JNI) | Done — clean Kotlin rewrite |
 | Compose UI (home, chat, models, settings) | Done — MVP |
-| Room DB + DataStore | Done |
+| Room DB + DataStore | Done — v1 schema incl. memories (upgrade-safe) |
 | Model download from `models.json` | Done |
 | On-device inference via llama.cpp | Done |
 | Onboarding wizard (languages/tiers) | Done — Compose wizard with hash-gated unsensored |
@@ -51,9 +53,7 @@ archived or removed.
 
 ## Database note
 
-The Kotlin app uses the same `localchat.db` name. Schema version is simplified
-during early migration — upgrades from the smali app may use destructive
-migration until schema parity is restored.
+The Kotlin app uses the same `localchat.db` name and **v1.0 Room schema** (conversations, messages, models, memories). Upgrades from the smali v1.0 app keep existing chats and models.
 
 ## Privacy
 

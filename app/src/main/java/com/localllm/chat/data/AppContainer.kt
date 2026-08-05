@@ -16,8 +16,7 @@ class AppContainer(context: Context) {
         appContext,
         AppDatabase::class.java,
         "localchat.db",
-    ).fallbackToDestructiveMigration()
-        .build()
+    ).build()
 
     val settingsRepository = SettingsRepository(appContext)
     val onboardingRepository = OnboardingRepository(

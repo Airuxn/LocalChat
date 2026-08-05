@@ -55,6 +55,16 @@ data class ModelEntity(
     val addedAt: Long = System.currentTimeMillis(),
 )
 
+/** Matches v1.0 Room schema — preserves user memories on upgrade from smali app. */
+@Entity(tableName = "memories")
+data class MemoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val content: String,
+    val sourceConversationId: Long? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
 @Dao
 interface ConversationDao {
     @Query("SELECT * FROM conversations ORDER BY updatedAt DESC")
@@ -91,8 +101,19 @@ interface ModelDao {
     suspend fun insert(model: ModelEntity): Long
 }
 
+@Dao
+interface MemoryDao {
+    @Query("SELECT * FROM memories ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<MemoryEntity>>
+}
+
 @Database(
-    entities = [ConversationEntity::class, MessageEntity::class, ModelEntity::class],
+    entities = [
+        ConversationEntity::class,
+        MessageEntity::class,
+        ModelEntity::class,
+        MemoryEntity::class,
+    ],
     version = 1,
     exportSchema = false,
 )
@@ -100,4 +121,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
     abstract fun modelDao(): ModelDao
+    abstract fun memoryDao(): MemoryDao
 }

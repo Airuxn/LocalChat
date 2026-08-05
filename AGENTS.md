@@ -28,5 +28,5 @@ The legacy `android/smali` apktool tree remains for reference only.
 
 - Do **not** edit `android/smali` for product features; edit Kotlin under `app/src/main/java/`
 - `models.json` is copied to `app/src/main/assets/models.json` at build time (keep root `models.json` in sync manually or via script)
-- Release signing: configure `signingConfigs` in `app/build.gradle.kts` (not committed)
+- Release signing: `LOCALCHAT_KEYSTORE_PASS` + optional `LOCALCHAT_KEYSTORE` / `LOCALCHAT_KEY_ALIAS`; see `app/build.gradle.kts`
 - Inference is 100% on-device; Gradle migration does not add cloud dependencies
