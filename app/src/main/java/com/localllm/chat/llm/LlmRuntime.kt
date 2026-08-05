@@ -7,12 +7,10 @@ import com.localllm.chat.data.repo.SettingsRepository
 import com.suhel.llamabro.sdk.chat.ChatEvent
 import com.suhel.llamabro.sdk.chat.CompletionResult
 import com.suhel.llamabro.sdk.chat.LlamaChatSession
-import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import com.suhel.llamabro.sdk.config.ModelLoadConfig
 import com.suhel.llamabro.sdk.config.ModelProfiles
-import com.suhel.llamabro.sdk.config.OverflowStrategy
-import com.suhel.llamabro.sdk.config.SessionConfig
+import com.suhel.llamabro.sdk.config.sessionConfigForV1
 import com.suhel.llamabro.sdk.engine.LlamaEngine
 import com.suhel.llamabro.sdk.engine.LlamaSession
 import kotlinx.coroutines.Dispatchers
@@ -38,11 +36,10 @@ class LlmRuntime(
     private var loadedContextSize: Int = 0
     private var loadedTemperature: Float = 0.7f
 
-    /** v1 l3/o.g — warm LlamaChatSession per conversation. */
+    /** v1 l3/o.g — warm LlamaChatSession; reuse until conversation or model changes. */
     private var chatSession: LlamaChatSession? = null
     private var chatConversationId: Long? = null
     private var chatModelPath: String? = null
-    private var chatSystemPrompt: String? = null
 
     suspend fun ensureLoaded(model: ModelEntity, onProgress: ((Float) -> Boolean)? = null) =
         ensureLoaded(model, temperatureOverride = null, onProgress)
@@ -75,14 +72,10 @@ class LlmRuntime(
         }
         val newSession = withContext(Dispatchers.IO) {
             newEngine.createSession(
-                SessionConfig(
+                sessionConfigForV1(
                     contextSize = contextSize,
-                    overflowStrategy = if (model.promptFormat == "QWEN_3_5") {
-                        OverflowStrategy.DROP_MIDDLE
-                    } else {
-                        OverflowStrategy.DROP_OLDEST
-                    },
-                    inferenceConfig = inference,
+                    inference = inference,
+                    isEburonModel = isEburonModel(model),
                 ),
             )
         }
@@ -109,7 +102,7 @@ class LlmRuntime(
         temperatureOverride: Float? = null,
     ): Flow<String> = flow {
         ensureLoaded(model, temperatureOverride = temperatureOverride)
-        val inference = InferenceConfig(
+        val inference = profileFor(model).defaultInference.copy(
             temperature = temperatureOverride ?: loadedTemperature,
         )
         val chat = mutex.withLock {
@@ -148,7 +141,7 @@ class LlmRuntime(
         val chat = mutex.withLock {
             chatSession ?: error("Chat session not initialized")
         }
-        val inference = InferenceConfig(
+        val inference = profileFor(model).defaultInference.copy(
             temperature = temperatureOverride ?: loadedTemperature,
         )
         var lastLen = 0
@@ -187,50 +180,34 @@ class LlmRuntime(
         priorTurns: List<ChatTurn>,
     ): LlamaChatSession {
         val llamaSession = session ?: error("Model session not ready")
-        val needsReset = chatConversationId != conversationId ||
-            chatModelPath != model.filePath ||
-            chatSystemPrompt != systemPrompt ||
-            chatSession == null
-
-        if (needsReset) {
-            recreateSessionLocked(model)
-            val freshSession = session ?: error("Model session not ready")
-            chatSession = freshSession.createChatSession(systemPrompt)
-            chatSession!!.initialize()
-            val history = priorTurns.mapNotNull { it.toChatEvent() }
-            if (history.isNotEmpty()) {
-                chatSession!!.feedHistory(history)
-            }
-            chatConversationId = conversationId
-            chatModelPath = model.filePath
-            chatSystemPrompt = systemPrompt
+        val canReuse = chatSession != null &&
+            chatConversationId == conversationId &&
+            chatModelPath == model.filePath
+        if (canReuse) {
+            return chatSession!!
         }
+
+        // v1 reuses native LlamaSession; clear prompt state before rebinding another conversation.
+        llamaSession.clear()
+        chatSession = llamaSession.createChatSession(systemPrompt)
+        chatSession!!.initialize()
+        val history = priorTurns.mapNotNull { it.toChatEvent() }
+        if (history.isNotEmpty()) {
+            chatSession!!.feedHistory(history)
+        }
+        chatConversationId = conversationId
+        chatModelPath = model.filePath
         return chatSession!!
     }
 
-    private suspend fun recreateSessionLocked(model: ModelEntity) {
-        val eng = engine ?: error("Engine not loaded")
-        session?.close()
-        session = eng.createSession(
-            SessionConfig(
-                contextSize = loadedContextSize,
-                overflowStrategy = if (model.promptFormat == "QWEN_3_5") {
-                    OverflowStrategy.DROP_MIDDLE
-                } else {
-                    OverflowStrategy.DROP_OLDEST
-                },
-                inferenceConfig = profileFor(model).defaultInference.copy(
-                    temperature = loadedTemperature,
-                ),
-            ),
-        )
-    }
+    private fun isEburonModel(model: ModelEntity): Boolean =
+        model.name.contains("eburon", ignoreCase = true) ||
+            model.filePath.contains("eburon", ignoreCase = true)
 
     private fun invalidateChatBinding() {
         chatSession = null
         chatConversationId = null
         chatModelPath = null
-        chatSystemPrompt = null
     }
 
     private fun unloadLocked() {

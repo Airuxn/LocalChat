@@ -5,10 +5,26 @@ import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import kotlinx.coroutines.flow.Flow
 
-enum class TokenGenerationResultCode {
-    OK,
-    ERROR,
-    ABORTED,
+enum class TokenGenerationResultCode(val raw: Int) {
+    OK(0),
+    MODEL_NOT_FOUND(1),
+    MODEL_LOAD_FAILED(2),
+    BACKEND_LOAD_FAILED(3),
+    CANCELLED(4),
+    CONTEXT_INIT_FAILED(10),
+    CONTEXT_OVERFLOW(11),
+    DECODE_FAILED(12),
+    UNKNOWN(99),
+    ;
+
+    companion object {
+        private val byRaw = entries.associateBy { it.raw }
+
+        fun parse(raw: Int): TokenGenerationResultCode = byRaw[raw] ?: UNKNOWN
+
+        fun isSuccess(code: TokenGenerationResultCode): Boolean =
+            code == OK || code == CANCELLED
+    }
 }
 
 data class TokenGenerationResult(
@@ -20,7 +36,6 @@ data class TokenGenerationResult(
 interface LlamaSession : AutoCloseable {
     fun getLoadableModel(): LoadableModel
 
-    /** v1 setPrefixedPrompt — fully formatted system block including ChatML wrappers. */
     suspend fun setPrefixedPrompt(prompt: String) = setSystemPrompt(prompt)
 
     suspend fun setSystemPrompt(prompt: String)
@@ -30,6 +45,5 @@ interface LlamaSession : AutoCloseable {
     fun abort()
     suspend fun updateSampler(config: InferenceConfig)
 
-    /** v1: one warm chat session per conversation. */
     suspend fun createChatSession(systemPrompt: String): LlamaChatSession
 }

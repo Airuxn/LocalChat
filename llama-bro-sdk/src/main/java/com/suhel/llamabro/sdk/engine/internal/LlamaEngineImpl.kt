@@ -1,12 +1,13 @@
 package com.suhel.llamabro.sdk.engine.internal
 
 import com.suhel.llamabro.sdk.ProgressListener
+import com.suhel.llamabro.sdk.chat.LlamaChatSession
+import com.suhel.llamabro.sdk.chat.internal.LlamaChatSessionImpl
+import com.suhel.llamabro.sdk.config.DecodeConfig
 import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import com.suhel.llamabro.sdk.config.OverflowStrategy
 import com.suhel.llamabro.sdk.config.SessionConfig
-import com.suhel.llamabro.sdk.chat.LlamaChatSession
-import com.suhel.llamabro.sdk.chat.internal.LlamaChatSessionImpl
 import com.suhel.llamabro.sdk.engine.LlamaEngine
 import com.suhel.llamabro.sdk.engine.LlamaSession
 import com.suhel.llamabro.sdk.engine.TokenGenerationResult
@@ -60,17 +61,16 @@ class LlamaSessionImpl(
 
     init {
         val inference = sessionConfig.inferenceConfig.toNative()
+        val (overflowId, overflowDrop) = sessionConfig.overflowStrategy.toNative()
+        val decode = sessionConfig.decodeConfig
         val params = SessionNativeCreateParams(
             contextSize = sessionConfig.contextSize,
-            threads = sessionConfig.threads,
-            overflowStrategyId = when (sessionConfig.overflowStrategy) {
-                OverflowStrategy.DROP_OLDEST -> 0
-                OverflowStrategy.DROP_MIDDLE -> 1
-            },
-            overflowDropTokens = sessionConfig.overflowDropTokens,
+            threads = loadableModel.loadConfig.threads,
+            overflowStrategyId = overflowId,
+            overflowDropTokens = overflowDrop,
             inferenceParams = inference,
-            batchSize = sessionConfig.batchSize,
-            microBatchSize = sessionConfig.microBatchSize,
+            batchSize = decode.batchSize,
+            microBatchSize = decode.microBatchSize,
         )
         sessionPtr = SessionJni.create(enginePtr, params)
     }
@@ -101,6 +101,7 @@ class LlamaSessionImpl(
             }
             emit(piece)
             if (piece.isComplete) break
+            if (!TokenGenerationResultCode.isSuccess(piece.resultCode)) break
         }
     }
 
@@ -120,6 +121,12 @@ class LlamaSessionImpl(
 
     private suspend fun <T> withLock(block: () -> T): T = mutex.withLock {
         withContext(Dispatchers.IO) { block() }
+    }
+
+    private fun OverflowStrategy.toNative(): Pair<Int, Int> = when (this) {
+        OverflowStrategy.Halt -> 0 to 0
+        OverflowStrategy.ClearHistory -> 1 to 0
+        is OverflowStrategy.RollingWindow -> 2 to dropTokens
     }
 }
 
@@ -188,11 +195,7 @@ class SessionNativeTokenResult {
     }
 
     fun toResult(): TokenGenerationResult {
-        val code = when (resultCode) {
-            0 -> TokenGenerationResultCode.OK
-            2 -> TokenGenerationResultCode.ABORTED
-            else -> TokenGenerationResultCode.ERROR
-        }
+        val code = TokenGenerationResultCode.parse(resultCode)
         return TokenGenerationResult(token, code, isComplete)
     }
 }

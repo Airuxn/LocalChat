@@ -29,6 +29,18 @@ data class InferenceConfig(
     val seed: Int = 0,
 )
 
+/** v1 overflow strategies — native ids: Halt=0, ClearHistory=1, RollingWindow=2. */
+sealed interface OverflowStrategy {
+    data object Halt : OverflowStrategy
+    data object ClearHistory : OverflowStrategy
+    data class RollingWindow(val dropTokens: Int = 512) : OverflowStrategy
+}
+
+data class DecodeConfig(
+    val batchSize: Int = 512,
+    val microBatchSize: Int = 128,
+)
+
 data class ModelProfile(
     val promptFormat: PromptFormat,
     val defaultInference: InferenceConfig = InferenceConfig(),
@@ -40,16 +52,12 @@ data class LoadableModel(
     val profile: ModelProfile,
 )
 
-enum class OverflowStrategy { DROP_OLDEST, DROP_MIDDLE }
-
 data class SessionConfig(
     val contextSize: Int = 2048,
-    val threads: Int = 4,
-    val overflowStrategy: OverflowStrategy = OverflowStrategy.DROP_OLDEST,
-    val overflowDropTokens: Int = 0,
+    val overflowStrategy: OverflowStrategy = OverflowStrategy.RollingWindow(),
     val inferenceConfig: InferenceConfig = InferenceConfig(),
-    val batchSize: Int = 512,
-    val microBatchSize: Int = 128,
+    val decodeConfig: DecodeConfig = DecodeConfig(),
+    val seed: Int = 0,
 )
 
 object ModelProfiles {
@@ -69,3 +77,23 @@ object ModelProfiles {
         thinking = ThinkingCapabilities.PREFILL_THINKING,
     )
 }
+
+/** Build SessionConfig exactly like v1 l3/k.smali. */
+fun sessionConfigForV1(
+    contextSize: Int,
+    inference: InferenceConfig,
+    isEburonModel: Boolean,
+): SessionConfig = SessionConfig(
+    contextSize = contextSize,
+    overflowStrategy = if (isEburonModel) {
+        OverflowStrategy.ClearHistory
+    } else {
+        OverflowStrategy.RollingWindow(dropTokens = 512)
+    },
+    inferenceConfig = inference,
+    decodeConfig = if (isEburonModel) {
+        DecodeConfig(batchSize = 512, microBatchSize = 128)
+    } else {
+        DecodeConfig(batchSize = 0, microBatchSize = 0)
+    },
+)

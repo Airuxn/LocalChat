@@ -14,8 +14,8 @@ android {
         applicationId = "com.localllm.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "2.2.3"
+        versionCode = 10
+        versionName = "2.2.4"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }

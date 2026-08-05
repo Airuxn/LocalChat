@@ -30,4 +30,5 @@ The legacy `android/smali` apktool tree remains for reference only.
 - `models.json` is copied to `app/src/main/assets/models.json` at build time (keep root `models.json` in sync manually or via script)
 - Release signing: `LOCALCHAT_KEYSTORE_PASS` + optional `LOCALCHAT_KEYSTORE` / `LOCALCHAT_KEY_ALIAS`; see `app/build.gradle.kts`
 - Inference is 100% on-device; Gradle migration does not add cloud dependencies
-- **Chat / LLM:** match v1 `android/smali/l3/o.smali` + `LlamaChatSessionImpl` — use `createChatSession` → `initialize` (formatted `setPrefixedPrompt`) → `feedHistory` → `completion()`. Do not call `session.clear()` per message or pass raw system text to JNI.
+- **Chat / LLM:** match v1 `android/smali/l3/o.smali` + `LlamaChatSessionImpl` — use `createChatSession` → `initialize` (formatted `setPrefixedPrompt`) → `feedHistory` → `completion()`. Do not pass raw system text to JNI. Reuse the warm `LlamaChatSession` for follow-up messages (same conversation + model). Only call `session.clear()` when rebinding a different conversation on the same native session — not on every message.
+- **SessionConfig:** use `sessionConfigForV1()` — non-Eburon models need `OverflowStrategy.RollingWindow(512)` and `DecodeConfig(0, 0)`; Eburon uses `ClearHistory` + `DecodeConfig(512, 128)`. Wrong overflow ids or batch sizes crash native inference.

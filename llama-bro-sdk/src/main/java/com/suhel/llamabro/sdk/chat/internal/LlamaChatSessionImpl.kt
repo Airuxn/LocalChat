@@ -78,12 +78,19 @@ class LlamaChatSessionImpl(
         try {
             session.generateFlow().collect { result ->
                 when (result.resultCode) {
-                    TokenGenerationResultCode.ERROR -> {
-                        emit(CompletionResult.Error("Generation failed (context full or decode error)"))
+                    TokenGenerationResultCode.CONTEXT_OVERFLOW,
+                    TokenGenerationResultCode.DECODE_FAILED,
+                    TokenGenerationResultCode.CONTEXT_INIT_FAILED,
+                    -> {
+                        emit(CompletionResult.Error("Generation failed (${result.resultCode})"))
                         return@collect
                     }
-                    TokenGenerationResultCode.ABORTED -> return@collect
+                    TokenGenerationResultCode.CANCELLED -> return@collect
                     TokenGenerationResultCode.OK -> Unit
+                    else -> {
+                        emit(CompletionResult.Error("Generation failed (${result.resultCode})"))
+                        return@collect
+                    }
                 }
                 val piece = result.token ?: return@collect
                 text.append(piece)
