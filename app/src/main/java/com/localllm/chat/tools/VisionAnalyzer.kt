@@ -2,6 +2,7 @@ package com.localllm.chat.tools
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import com.google.mlkit.common.sdkinternal.MlKitContext
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.label.ImageLabeling
 import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
@@ -15,6 +16,7 @@ import kotlin.coroutines.resume
 object VisionAnalyzer {
     suspend fun analyze(context: Context, imageBytes: ByteArray, userPrompt: String): String =
         withContext(Dispatchers.Default) {
+            ensureMlKit(context)
             val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                 ?: return@withContext "Could not decode attached image."
             val image = InputImage.fromBitmap(bitmap, 0)
@@ -75,5 +77,13 @@ object VisionAnalyzer {
                 "and that finer detail is uncertain.",
         )
         return sb.toString()
+    }
+
+    private fun ensureMlKit(context: Context) {
+        try {
+            MlKitContext.getInstance()
+        } catch (_: IllegalStateException) {
+            MlKitContext.initializeIfNeeded(context.applicationContext)
+        }
     }
 }

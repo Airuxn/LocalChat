@@ -17,7 +17,7 @@ class ModelRepository(
     private val context: Context,
     private val modelDao: ModelDao,
 ) {
-    val catalog: List<DownloadableModel> = ModelCatalog.all
+    val catalog: List<DownloadableModel> by lazy { ModelCatalog.all(context) }
 
     fun observeInstalled(): Flow<List<ModelEntity>> = modelDao.observeAll()
 

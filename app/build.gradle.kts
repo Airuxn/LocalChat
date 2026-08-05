@@ -14,8 +14,8 @@ android {
         applicationId = "com.localllm.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "2.1.1"
+        versionCode = 5
+        versionName = "2.1.2"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -40,7 +40,8 @@ android {
             }
         }
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -67,8 +68,12 @@ android {
 
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            useLegacyPackaging = true
         }
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -92,4 +97,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.mlkitObjectDetection)
     implementation(libs.mlkitImageLabeling)
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

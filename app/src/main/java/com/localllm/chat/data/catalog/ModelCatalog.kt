@@ -1,5 +1,6 @@
 package com.localllm.chat.data.catalog
 
+import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -30,12 +31,22 @@ data class DownloadableModel(
 object ModelCatalog {
     private val json = Json { ignoreUnknownKeys = true }
 
-    val all: List<DownloadableModel> by lazy {
-        val stream = checkNotNull(javaClass.classLoader?.getResourceAsStream("models.json")) {
-            "models.json missing from assets"
+    @Volatile
+    private var cache: List<DownloadableModel>? = null
+
+    /** Load model catalog from APK assets (must use AssetManager, not ClassLoader). */
+    fun all(context: Context): List<DownloadableModel> {
+        cache?.let { return it }
+        return synchronized(this) {
+            cache ?: load(context.applicationContext).also { cache = it }
         }
-        json.decodeFromString<List<DownloadableModel>>(stream.bufferedReader().readText())
     }
 
-    fun byId(id: String): DownloadableModel? = all.find { it.id == id }
+    fun byId(context: Context, id: String): DownloadableModel? =
+        all(context).find { it.id == id }
+
+    private fun load(context: Context): List<DownloadableModel> {
+        val text = context.assets.open("models.json").bufferedReader().use { it.readText() }
+        return json.decodeFromString(text)
+    }
 }

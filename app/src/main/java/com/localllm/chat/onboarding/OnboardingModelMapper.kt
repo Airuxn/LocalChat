@@ -18,8 +18,8 @@ object OnboardingModelMapper {
         }
     }
 
-    fun catalogModelFor(llmType: String, tier: String) =
-        ModelCatalog.byId(modelIdFor(llmType, tier))
+    fun catalogModelFor(context: android.content.Context, llmType: String, tier: String) =
+        ModelCatalog.byId(context, modelIdFor(llmType, tier))
             ?: error("No catalog entry for onboarding selection")
 
     /** System prompt instructing the LLM to reply in the chosen language. */

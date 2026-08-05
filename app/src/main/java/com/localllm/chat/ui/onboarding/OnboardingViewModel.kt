@@ -99,7 +99,11 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
 
     private fun startDownload() {
         val state = _ui.value
-        val model = OnboardingModelMapper.catalogModelFor(state.llmType, state.tier)
+        val model = OnboardingModelMapper.catalogModelFor(
+            container.applicationContext,
+            state.llmType,
+            state.tier,
+        )
         val systemPrompt = OnboardingModelMapper.systemPromptForLanguage(state.language)
         _ui.update {
             it.copy(

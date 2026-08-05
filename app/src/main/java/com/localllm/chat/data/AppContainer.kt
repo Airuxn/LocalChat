@@ -13,7 +13,8 @@ import com.localllm.chat.llm.ChatEngine
 import com.localllm.chat.llm.LlmRuntime
 
 class AppContainer(context: Context) {
-    private val appContext = context.applicationContext
+    val applicationContext: Context = context.applicationContext
+    private val appContext = applicationContext
 
     val database: AppDatabase = Room.databaseBuilder(
         appContext,
@@ -21,6 +22,7 @@ class AppContainer(context: Context) {
         "localchat.db",
     )
         .addMigrations(*AppDatabaseMigrations.ALL)
+        .fallbackToDestructiveMigration()
         .build()
 
     val settingsRepository = SettingsRepository(appContext)
