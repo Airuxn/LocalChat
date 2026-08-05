@@ -42,7 +42,10 @@ done
 
 echo
 echo "→ Native inference library:"
-unzip -l "$APK" | grep -q 'lib/arm64-v8a/libllama_bro.so' || { echo "MISSING libllama_bro.so" >&2; exit 1; }
+if ! unzip -l "$APK" 2>/dev/null | grep -F 'lib/arm64-v8a/libllama_bro.so' | grep -q .; then
+  echo "MISSING libllama_bro.so" >&2
+  exit 1
+fi
 echo "  OK: libllama_bro.so (arm64-v8a)"
 
 echo
