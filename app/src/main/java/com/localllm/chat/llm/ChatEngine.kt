@@ -46,6 +46,7 @@ class ChatEngine(
     fun sendMessage(
         model: ModelEntity,
         mode: ChatMode,
+        priorTurns: List<ChatTurn>,
         userMessage: String,
         systemPrompt: String,
         promptKind: PromptFormatKind,
@@ -60,34 +61,56 @@ class ChatEngine(
             prompt = "${EburonToolExecutor.formatToolResponse(vision)}\n\nUser: $userMessage"
         }
 
-        var followUp: String? = null
+        var history = priorTurns
+        var followUpAssistant: String? = null
+        var followUpTool: String? = null
         var iterations = 0
         while (iterations < 4) {
             iterations++
-            val input = followUp ?: prompt
-            followUp = null
             val chunk = StringBuilder()
-            llmRuntime.completeOnce(model, input, promptKind, systemPrompt).collect { token ->
+            val tokenFlow = if (followUpAssistant != null && followUpTool != null) {
+                llmRuntime.continueAfterToolResult(
+                    model = model,
+                    priorTurns = history,
+                    assistantWithToolCall = followUpAssistant!!,
+                    toolResponse = followUpTool!!,
+                    promptKind = promptKind,
+                    systemPrompt = systemPrompt,
+                )
+            } else {
+                llmRuntime.generateWithHistory(model, history, prompt, promptKind, systemPrompt)
+            }
+            tokenFlow.collect { token ->
                 chunk.append(token)
                 emit(token)
             }
-            val visible = ToolCallParser.stripThinking(ToolCallParser.stripToolCalls(chunk.toString()))
+
+            val raw = chunk.toString()
+            followUpAssistant = null
+            followUpTool = null
             if (!isEburonModel(model) || !settings.eburonToolsEnabled) break
-            val calls = ToolCallParser.extractCalls(chunk.toString())
+            val calls = ToolCallParser.extractCalls(raw)
             if (calls.isEmpty()) break
+
             for (call in calls) {
-                val result = EburonToolExecutor.execute(
-                    name = call.name,
-                    argsJson = call.argsJson,
-                    imageBytes = imageBytes,
-                    ollamaApiKey = settings.ollamaApiKey.takeIf { it.isNotBlank() },
-                    visionAnalyze = { bytes, p -> VisionAnalyzer.analyze(context, bytes, p) },
-                )
-                followUp = EburonToolExecutor.formatToolResponse(result)
-                if (visible.isNotBlank()) emit("\n\n")
-                emit(EburonToolExecutor.formatToolResponse(result))
+                val result = runCatching {
+                    EburonToolExecutor.execute(
+                        name = call.name,
+                        argsJson = call.argsJson,
+                        imageBytes = imageBytes,
+                        ollamaApiKey = settings.ollamaApiKey.takeIf { it.isNotBlank() },
+                        visionAnalyze = { bytes, p -> VisionAnalyzer.analyze(context, bytes, p) },
+                    )
+                }.getOrElse { e -> "Tool error: ${e.message ?: "unknown"}" }
+                val formatted = EburonToolExecutor.formatToolResponse(result)
+                followUpAssistant = raw
+                followUpTool = formatted
+                emit("\n\n")
+                emit(formatted)
                 emit("\n\n")
             }
+            if (followUpAssistant == null) break
+            history = history + ChatTurn("assistant", raw) + ChatTurn("user", followUpTool!!)
         }
     }.flowOn(Dispatchers.IO)
 

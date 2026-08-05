@@ -14,10 +14,14 @@ data class SearchResult(val title: String, val url: String, val snippet: String)
 object WebSearchClient {
     suspend fun search(query: String, maxResults: Int = 5, ollamaApiKey: String? = null): String =
         withContext(Dispatchers.IO) {
-            if (!ollamaApiKey.isNullOrBlank()) {
-                ollamaSearch(query, maxResults, ollamaApiKey)?.let { return@withContext it }
+            try {
+                if (!ollamaApiKey.isNullOrBlank()) {
+                    ollamaSearch(query, maxResults, ollamaApiKey)?.let { return@withContext it }
+                }
+                duckDuckGoSearch(query, maxResults)
+            } catch (e: Exception) {
+                "Web search failed (${e.message ?: "network error"}). Answer from on-device knowledge instead."
             }
-            duckDuckGoSearch(query, maxResults)
         }
 
     private fun ollamaSearch(query: String, maxResults: Int, apiKey: String): String? {
@@ -57,6 +61,14 @@ object WebSearchClient {
     }
 
     private fun duckDuckGoSearch(query: String, maxResults: Int): String {
+        return try {
+            duckDuckGoSearchInternal(query, maxResults)
+        } catch (e: Exception) {
+            "Web search unavailable: ${e.message ?: "network error"}"
+        }
+    }
+
+    private fun duckDuckGoSearchInternal(query: String, maxResults: Int): String {
         val encoded = URLEncoder.encode(query, "UTF-8")
         val apiUrl = "https://api.duckduckgo.com/?q=$encoded&format=json&no_html=1&skip_disambig=1"
         val conn = (URL(apiUrl).openConnection() as HttpURLConnection).apply {

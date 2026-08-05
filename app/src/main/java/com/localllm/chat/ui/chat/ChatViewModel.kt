@@ -7,6 +7,7 @@ import com.localllm.chat.data.AppContainer
 import com.localllm.chat.data.db.MessageEntity
 import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.onboarding.OnboardingModelMapper
+import com.localllm.chat.llm.ChatTurn
 import com.localllm.chat.tools.ToolCallParser
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,13 @@ class ChatViewModel(
                     _snackbar.value = "No model loaded. Open Models and download one."
                     return@launch
                 }
+            val priorTurns = messages.value.map { msg ->
+                ChatTurn(
+                    role = msg.role,
+                    content = msg.content,
+                    thinking = msg.thinkingContent,
+                )
+            }
             container.chatRepository.addMessage(conversationId, "user", text)
             _isGenerating.value = true
             _isLoadingModel.value = true
@@ -111,6 +119,7 @@ class ChatViewModel(
                 container.chatEngine.sendMessage(
                     model = model,
                     mode = _chatMode.value,
+                    priorTurns = priorTurns,
                     userMessage = text,
                     systemPrompt = systemPrompt,
                     promptKind = kind,

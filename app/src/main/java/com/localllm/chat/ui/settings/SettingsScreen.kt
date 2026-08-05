@@ -117,7 +117,7 @@ fun SettingsScreen(
             )
 
             Text(
-                "Chat inference runs on-device. LocalChat 2.2.0",
+                "Chat inference runs on-device. LocalChat 2.2.2",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 24.dp, bottom = 16.dp),

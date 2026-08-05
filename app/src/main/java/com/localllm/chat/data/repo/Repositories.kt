@@ -8,6 +8,7 @@ import com.localllm.chat.data.db.ModelDao
 import com.localllm.chat.data.db.ModelEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import com.localllm.chat.llm.GgufValidator
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -76,6 +77,11 @@ class ModelRepository(
                     error("Download incomplete")
                 }
             }
+            GgufValidator.validate(
+                path = out.absolutePath,
+                expectedExactBytes = model.expectedExactBytes,
+                expectedMinBytes = model.expectedMinBytes,
+            )
             modelDao.deactivateAll()
             val entity = ModelEntity(
                 name = model.name,
