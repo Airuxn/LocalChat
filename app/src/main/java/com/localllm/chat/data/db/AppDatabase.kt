@@ -73,6 +73,9 @@ interface ConversationDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(conversation: ConversationEntity): Long
 
+    @Query("SELECT * FROM conversations WHERE id = :id LIMIT 1")
+    suspend fun getById(id: Long): ConversationEntity?
+
     @Query("DELETE FROM conversations WHERE id = :id")
     suspend fun delete(id: Long)
 }
@@ -105,6 +108,18 @@ interface ModelDao {
 interface MemoryDao {
     @Query("SELECT * FROM memories ORDER BY updatedAt DESC")
     fun observeAll(): Flow<List<MemoryEntity>>
+
+    @Query("SELECT * FROM memories ORDER BY updatedAt ASC")
+    fun observeForPrompt(): Flow<List<MemoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(memory: MemoryEntity): Long
+
+    @Query("UPDATE memories SET content = :content, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun update(id: Long, content: String, updatedAt: Long)
+
+    @Query("DELETE FROM memories WHERE id = :id")
+    suspend fun delete(id: Long)
 }
 
 @Database(

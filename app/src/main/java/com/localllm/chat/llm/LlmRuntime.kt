@@ -28,7 +28,14 @@ class LlmRuntime(
     private var session: LlamaSession? = null
     private var activeModel: ModelEntity? = null
 
-    suspend fun ensureLoaded(model: ModelEntity, onProgress: ((Float) -> Boolean)? = null) = mutex.withLock {
+    suspend fun ensureLoaded(model: ModelEntity, onProgress: ((Float) -> Boolean)? = null) =
+        ensureLoaded(model, temperatureOverride = null, onProgress)
+
+    suspend fun ensureLoaded(
+        model: ModelEntity,
+        temperatureOverride: Float? = null,
+        onProgress: ((Float) -> Boolean)? = null,
+    ) = mutex.withLock {
         if (activeModel?.filePath == model.filePath && engine != null) return@withLock
         unloadLocked()
         val profile = when (model.promptFormat) {
@@ -42,18 +49,19 @@ class LlmRuntime(
             profile = profile,
         )
         val settings = settingsRepository.settings.first()
+        val temp = temperatureOverride ?: settings.temperature
         engine = LlamaEngine.create(loadable, onProgress)
         session = engine!!.createSession(
             SessionConfig(
                 contextSize = settings.contextSize,
-                inferenceConfig = InferenceConfig(temperature = settings.temperature),
+                inferenceConfig = InferenceConfig(temperature = temp),
             ),
         )
-        val system = model.systemPrompt?.takeIf { it.isNotBlank() }
-            ?: settings.systemPromptOverride.takeIf { it.isNotBlank() }
-            ?: "You are a helpful assistant."
-        session!!.setSystemPrompt(system)
         activeModel = model
+    }
+
+    suspend fun applySystemPrompt(prompt: String) = mutex.withLock {
+        session?.setSystemPrompt(prompt)
     }
 
     suspend fun complete(
@@ -61,8 +69,16 @@ class LlmRuntime(
         userMessage: String,
         promptKind: PromptFormatKind,
         systemPrompt: String,
+    ): Flow<String> = completeOnce(model, userMessage, promptKind, systemPrompt)
+
+    suspend fun completeOnce(
+        model: ModelEntity,
+        userMessage: String,
+        promptKind: PromptFormatKind,
+        systemPrompt: String,
     ): Flow<String> {
         ensureLoaded(model)
+        applySystemPrompt(systemPrompt)
         val format = promptKind.toFormat()
         val prompt = PromptFormatter.formatUserTurn(format, systemPrompt, userMessage)
         session!!.addPrompt(prompt)

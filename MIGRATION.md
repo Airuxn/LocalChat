@@ -40,10 +40,10 @@ Requirements: JDK 17+, Android SDK with platform 36 and build-tools 35+.
 | Model download from `models.json` | Done |
 | On-device inference via llama.cpp | Done |
 | Onboarding wizard (languages/tiers) | Done — Compose wizard with hash-gated unsensored |
-| Eburon tools / ML Kit vision | TODO |
-| Memory feature | TODO |
-| Coding chat mode | TODO |
-| Feature parity with v1.0 smali app | In progress |
+| Eburon tools / ML Kit vision | Done — web search + photo attach + on-device vision |
+| Memory feature | Done — CRUD UI, settings toggle, prompt injection |
+| Coding chat mode | Done — Chat/Coding picker, mode-specific prompts |
+| Feature parity with v1.0 smali app | Done (core product features) |
 
 ## Legacy `android/` folder
 

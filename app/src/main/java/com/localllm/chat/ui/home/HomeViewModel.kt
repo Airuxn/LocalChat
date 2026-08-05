@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.localllm.chat.data.AppContainer
 import com.localllm.chat.data.db.ConversationEntity
+import com.localllm.chat.domain.ChatMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -15,7 +16,8 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         container.chatRepository.observeConversations()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    suspend fun createChat(): Long = container.chatRepository.createConversation()
+    suspend fun createChat(mode: ChatMode = ChatMode.CHAT): Long =
+        container.chatRepository.createConversation(mode = mode.name)
 
     fun deleteChat(id: Long) {
         viewModelScope.launch { container.chatRepository.deleteConversation(id) }

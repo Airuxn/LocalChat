@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.localllm.chat.data.AppContainer
 import com.localllm.chat.data.db.MessageEntity
+import com.localllm.chat.domain.ChatMode
+import com.localllm.chat.onboarding.OnboardingModelMapper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,41 @@ class ChatViewModel(
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
+    private val _snackbar = MutableStateFlow<String?>(null)
+    val snackbar: StateFlow<String?> = _snackbar.asStateFlow()
+
+    private val _chatMode = MutableStateFlow(ChatMode.CHAT)
+    val chatMode: StateFlow<ChatMode> = _chatMode.asStateFlow()
+
+    private var attachedImage: ByteArray? = null
+
+    init {
+        viewModelScope.launch {
+            container.chatRepository.getConversation(conversationId)?.let {
+                _chatMode.value = ChatMode.fromStored(it.mode)
+            }
+        }
+    }
+
+    fun attachImage(bytes: ByteArray?) {
+        attachedImage = bytes
+    }
+
+    fun clearSnackbar() {
+        _snackbar.value = null
+    }
+
+    fun saveLastAssistantToMemory(content: String) {
+        viewModelScope.launch {
+            try {
+                container.memoryRepository.add(content, conversationId)
+                _snackbar.value = "Saved to memory"
+            } catch (e: Exception) {
+                _snackbar.value = e.message
+            }
+        }
+    }
+
     fun send(text: String) {
         viewModelScope.launch {
             val model = container.modelRepository.getActiveModel()
@@ -43,11 +80,26 @@ class ChatViewModel(
                 val kind = catalogModel?.promptFormatKind
                     ?: com.localllm.chat.data.catalog.PromptFormatKind.CHAT_ML
                 val settings = container.settingsRepository.settings.first()
-                container.llmRuntime.complete(
+                val memories = container.memoryRepository.observeForPrompt().first()
+                val onboarding = container.onboardingRepository.state.first()
+                val langPrompt = OnboardingModelMapper.systemPromptForLanguage(onboarding.language)
+                val systemPrompt = container.chatEngine.resolveSystemPrompt(
                     model = model,
+                    mode = _chatMode.value,
+                    settings = settings,
+                    memories = memories,
+                    onboardingLanguagePrompt = langPrompt,
+                )
+                val image = attachedImage
+                attachedImage = null
+                container.chatEngine.sendMessage(
+                    model = model,
+                    mode = _chatMode.value,
                     userMessage = text,
+                    systemPrompt = systemPrompt,
                     promptKind = kind,
-                    systemPrompt = model.systemPrompt ?: settings.systemPromptOverride.ifBlank { "You are a helpful assistant." },
+                    settings = settings,
+                    imageBytes = image,
                 ).collect { token ->
                     buffer.append(token)
                     _streamingText.value = buffer.toString()

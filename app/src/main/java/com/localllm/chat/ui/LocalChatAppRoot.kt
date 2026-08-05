@@ -1,11 +1,13 @@
 package com.localllm.chat.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -13,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,12 +34,16 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.localllm.chat.data.AppContainer
+import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.ui.chat.ChatScreen
 import com.localllm.chat.ui.chat.ChatViewModel
 import com.localllm.chat.ui.chat.ChatViewModelFactory
 import com.localllm.chat.ui.home.HomeScreen
 import com.localllm.chat.ui.home.HomeViewModel
 import com.localllm.chat.ui.home.HomeViewModelFactory
+import com.localllm.chat.ui.memory.MemoryScreen
+import com.localllm.chat.ui.memory.MemoryViewModel
+import com.localllm.chat.ui.memory.MemoryViewModelFactory
 import com.localllm.chat.ui.models.ModelsScreen
 import com.localllm.chat.ui.models.ModelsViewModel
 import com.localllm.chat.ui.models.ModelsViewModelFactory
@@ -86,15 +93,10 @@ fun LocalChatAppRoot(container: AppContainer) {
 private fun MainNav(container: AppContainer) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            HomeRoute(container, navController)
-        }
-        composable("models") {
-            ModelsRoute(container, navController)
-        }
-        composable("settings") {
-            SettingsRoute(container, navController)
-        }
+        composable("home") { HomeRoute(container, navController) }
+        composable("models") { ModelsRoute(container, navController) }
+        composable("settings") { SettingsRoute(container, navController) }
+        composable("memory") { MemoryRoute(container, navController) }
         composable(
             route = "chat/{id}",
             arguments = listOf(navArgument("id") { type = NavType.LongType }),
@@ -111,14 +113,40 @@ private fun HomeRoute(container: AppContainer, navController: androidx.navigatio
     val vm: HomeViewModel = viewModel(factory = HomeViewModelFactory(container))
     val conversations by vm.conversations.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
+    var showModePicker by remember { mutableStateOf(false) }
+
+    if (showModePicker) {
+        AlertDialog(
+            onDismissRequest = { showModePicker = false },
+            title = { Text("New chat") },
+            text = { Text("Choose chat mode") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showModePicker = false
+                    scope.launch {
+                        val id = vm.createChat(ChatMode.CHAT)
+                        navController.navigate("chat/$id")
+                    }
+                }) { Text("Chat") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showModePicker = false
+                    scope.launch {
+                        val id = vm.createChat(ChatMode.CODING)
+                        navController.navigate("chat/$id")
+                    }
+                }) { Text("Coding") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("LocalChat") },
                 actions = {
-                    IconButton(onClick = { navController.navigate("models") }) {
-                        Text("Choose model")
-                    }
+                    TextButton(onClick = { navController.navigate("models") }) { Text("Choose model") }
                     IconButton(onClick = { navController.navigate("settings") }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -126,12 +154,7 @@ private fun HomeRoute(container: AppContainer, navController: androidx.navigatio
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                scope.launch {
-                    val id = vm.createChat()
-                    navController.navigate("chat/$id")
-                }
-            }) {
+            FloatingActionButton(onClick = { showModePicker = true }) {
                 Icon(Icons.Default.Add, contentDescription = "New chat")
             }
         },
@@ -163,7 +186,31 @@ private fun ModelsRoute(container: AppContainer, navController: androidx.navigat
 private fun SettingsRoute(container: AppContainer, navController: androidx.navigation.NavController) {
     val vm: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(container))
     val settings by vm.settings.collectAsState(initial = com.localllm.chat.data.repo.SettingsState())
-    SettingsScreen(settings, onBack = { navController.popBackStack() }, onTemperature = vm::setTemperature)
+    SettingsScreen(
+        settings = settings,
+        onBack = { navController.popBackStack() },
+        onTemperature = vm::setTemperature,
+        onContextSize = vm::setContextSize,
+        onMaxTokens = vm::setMaxTokens,
+        onSystemPrompt = vm::setSystemPrompt,
+        onMemoryEnabled = vm::setMemoryEnabled,
+        onEburonToolsEnabled = vm::setEburonToolsEnabled,
+        onOllamaApiKey = vm::setOllamaApiKey,
+        onOpenMemory = { navController.navigate("memory") },
+    )
+}
+
+@Composable
+private fun MemoryRoute(container: AppContainer, navController: androidx.navigation.NavController) {
+    val vm: MemoryViewModel = viewModel(factory = MemoryViewModelFactory(container))
+    val memories by vm.memories.collectAsState(initial = emptyList())
+    MemoryScreen(
+        memories = memories,
+        onBack = { navController.popBackStack() },
+        onAdd = vm::add,
+        onUpdate = vm::update,
+        onDelete = vm::delete,
+    )
 }
 
 @Composable
@@ -172,17 +219,26 @@ private fun ChatRoute(
     navController: androidx.navigation.NavController,
     conversationId: Long,
 ) {
-    val vm: ChatViewModel = viewModel(
-        factory = ChatViewModelFactory(container, conversationId),
-    )
+    val vm: ChatViewModel = viewModel(factory = ChatViewModelFactory(container, conversationId))
     val messages by vm.messages.collectAsState(initial = emptyList())
     val streaming by vm.streamingText.collectAsState()
     val isGenerating by vm.isGenerating.collectAsState()
+    val chatMode by vm.chatMode.collectAsState()
+    val snackbar by vm.snackbar.collectAsState()
+    val settings by container.settingsRepository.settings.collectAsState(
+        initial = com.localllm.chat.data.repo.SettingsState(),
+    )
     ChatScreen(
         messages = messages,
         streamingText = streaming,
         isGenerating = isGenerating,
+        chatModeLabel = chatMode.label,
+        eburonToolsHint = settings.eburonToolsEnabled,
+        snackbarMessage = snackbar,
+        onClearSnackbar = vm::clearSnackbar,
         onBack = { navController.popBackStack() },
         onSend = vm::send,
+        onAttachImage = vm::attachImage,
+        onSaveLastAssistant = vm::saveLastAssistantToMemory,
     )
 }

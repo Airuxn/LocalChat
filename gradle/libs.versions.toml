@@ -29,6 +29,8 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+mlkitObjectDetection = { group = "com.google.mlkit", name = "object-detection", version = "17.0.2" }
+mlkitImageLabeling = { group = "com.google.mlkit", name = "image-labeling", version = "17.0.9" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

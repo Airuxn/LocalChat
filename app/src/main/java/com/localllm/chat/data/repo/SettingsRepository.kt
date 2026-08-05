@@ -3,6 +3,7 @@ package com.localllm.chat.data.repo
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -19,6 +20,9 @@ data class SettingsState(
     val maxTokens: Int = 512,
     val systemPromptOverride: String = "",
     val showThinking: Boolean = true,
+    val memoryEnabled: Boolean = true,
+    val eburonToolsEnabled: Boolean = true,
+    val ollamaApiKey: String = "",
 )
 
 class SettingsRepository(private val context: Context) {
@@ -27,6 +31,10 @@ class SettingsRepository(private val context: Context) {
         val contextSize = intPreferencesKey("context_size")
         val maxTokens = intPreferencesKey("max_tokens")
         val systemPrompt = stringPreferencesKey("system_prompt_override")
+        val showThinking = booleanPreferencesKey("show_thinking")
+        val memoryEnabled = booleanPreferencesKey("memory_enabled")
+        val eburonToolsEnabled = booleanPreferencesKey("eburon_tools_enabled")
+        val ollamaApiKey = stringPreferencesKey("ollama_api_key")
     }
 
     val settings: Flow<SettingsState> = context.settingsDataStore.data.map { prefs ->
@@ -35,6 +43,10 @@ class SettingsRepository(private val context: Context) {
             contextSize = prefs[Keys.contextSize] ?: 2048,
             maxTokens = prefs[Keys.maxTokens] ?: 512,
             systemPromptOverride = prefs[Keys.systemPrompt] ?: "",
+            showThinking = prefs[Keys.showThinking] ?: true,
+            memoryEnabled = prefs[Keys.memoryEnabled] ?: true,
+            eburonToolsEnabled = prefs[Keys.eburonToolsEnabled] ?: true,
+            ollamaApiKey = prefs[Keys.ollamaApiKey] ?: "",
         )
     }
 
@@ -42,6 +54,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateContextSize(value: Int) = edit { it[Keys.contextSize] = value }
     suspend fun updateMaxTokens(value: Int) = edit { it[Keys.maxTokens] = value }
     suspend fun updateSystemPrompt(value: String) = edit { it[Keys.systemPrompt] = value }
+    suspend fun updateMemoryEnabled(value: Boolean) = edit { it[Keys.memoryEnabled] = value }
+    suspend fun updateEburonToolsEnabled(value: Boolean) = edit { it[Keys.eburonToolsEnabled] = value }
+    suspend fun updateOllamaApiKey(value: String) = edit { it[Keys.ollamaApiKey] = value }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.settingsDataStore.edit(block)

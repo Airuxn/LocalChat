@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(private val container: AppContainer) : ViewModel() {
-    val settings: StateFlow<SettingsState> =
-        container.settingsRepository.settings
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsState())
+    val settings: StateFlow<SettingsState> = container.settingsRepository.settings
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SettingsState())
 
-    fun setTemperature(value: Float) {
-        viewModelScope.launch { container.settingsRepository.updateTemperature(value) }
-    }
+    fun setTemperature(v: Float) = viewModelScope.launch { container.settingsRepository.updateTemperature(v) }
+    fun setContextSize(v: Int) = viewModelScope.launch { container.settingsRepository.updateContextSize(v) }
+    fun setMaxTokens(v: Int) = viewModelScope.launch { container.settingsRepository.updateMaxTokens(v) }
+    fun setSystemPrompt(v: String) = viewModelScope.launch { container.settingsRepository.updateSystemPrompt(v) }
+    fun setMemoryEnabled(v: Boolean) = viewModelScope.launch { container.settingsRepository.updateMemoryEnabled(v) }
+    fun setEburonToolsEnabled(v: Boolean) = viewModelScope.launch { container.settingsRepository.updateEburonToolsEnabled(v) }
+    fun setOllamaApiKey(v: String) = viewModelScope.launch { container.settingsRepository.updateOllamaApiKey(v) }
 }
 
 class SettingsViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {

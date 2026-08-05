@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.localllm.chat.data.db.ConversationEntity
+import com.localllm.chat.domain.ChatMode
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun HomeScreen(
@@ -31,8 +34,10 @@ fun HomeScreen(
         }
         return
     }
+    val fmt = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
     LazyColumn(modifier = modifier.fillMaxSize()) {
         items(conversations, key = { it.id }) { conv ->
+            val mode = ChatMode.fromStored(conv.mode)
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -40,7 +45,10 @@ fun HomeScreen(
                     .padding(16.dp),
             ) {
                 Text(conv.title, style = MaterialTheme.typography.titleMedium)
-                Text("Updated ${conv.updatedAt}", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${mode.label} · ${fmt.format(Date(conv.updatedAt))}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         }
     }

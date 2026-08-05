@@ -3,6 +3,7 @@ package com.localllm.chat.data.repo
 import android.content.Context
 import com.localllm.chat.data.catalog.DownloadableModel
 import com.localllm.chat.data.catalog.ModelCatalog
+import com.localllm.chat.data.db.ConversationEntity
 import com.localllm.chat.data.db.ModelDao
 import com.localllm.chat.data.db.ModelEntity
 import kotlinx.coroutines.Dispatchers
@@ -102,10 +103,10 @@ class ChatRepository(
 
     fun observeMessages(conversationId: Long) = messageDao.observeForConversation(conversationId)
 
-    suspend fun createConversation(title: String = "New chat"): Long =
-        conversationDao.insert(
-            com.localllm.chat.data.db.ConversationEntity(title = title),
-        )
+    suspend fun createConversation(title: String = "New chat", mode: String = "CHAT"): Long =
+        conversationDao.insert(ConversationEntity(title = title, mode = mode))
+
+    suspend fun getConversation(id: Long) = conversationDao.getById(id)
 
     suspend fun addMessage(conversationId: Long, role: String, content: String, thinking: String? = null): Long =
         messageDao.insert(
