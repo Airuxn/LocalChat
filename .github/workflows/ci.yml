@@ -1,0 +1,63 @@
+name: CI
+
+# Tests + tag sync on push to main/master (single job).
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test --build-cache --no-daemon
+
+      - name: Benchmark smoke (parse + capabilities sync)
+        run: |
+          python3 -m py_compile scripts/prompt-benchmark/benchmark.py
+          python3 -m py_compile scripts/prompt-benchmark/tool_benchmark.py
+          python3 -m py_compile scripts/prompt-benchmark/inject_benchmark.py
+          python3 -m py_compile scripts/prompt-benchmark/run_all.py
+          python3 -c "import json; json.load(open('scripts/prompt-benchmark/capabilities.json')); json.load(open('app/src/main/assets/capabilities.json'))"
+          diff -q scripts/prompt-benchmark/capabilities.json app/src/main/assets/capabilities.json
+
+      - name: Sync tags to HEAD
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git tag -fa latest -m "Latest main"
+          git push origin refs/tags/latest --force
+          VERSION=""
+          if [ -f app/build.gradle.kts ]; then
+            VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
+          elif [ -f package.json ]; then
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          if [ -n "$VERSION" ]; then
+            git tag -fa "v${VERSION}" -m "Release v${VERSION}"
+            git push origin "refs/tags/v${VERSION}" --force
+          fi
