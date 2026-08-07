@@ -77,6 +77,8 @@ Open the APK on your device, allow install from unknown sources if prompted, the
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full chat pipeline, prompt tuning, and native stack.
 
+**Deep dive:** [How on-device tool calling works](docs/ON_DEVICE_TOOL_CALLING.md) — XML format, SDK tool loop, DuckDuckGo integration, and benchmark gating.
+
 ---
 
 ## Native tools (per model)
