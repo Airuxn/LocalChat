@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -44,6 +44,14 @@ jobs:
       - name: Verify debug APK contents
         run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
 
+      - name: Instrumented smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          target: google_apis
+          script: ./gradlew connectedDebugAndroidTest --no-daemon
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -56,17 +64,3 @@ jobs:
           python3 -m py_compile scripts/prompt-benchmark/run_all.py
           python3 -c "import json; json.load(open('scripts/prompt-benchmark/capabilities.json')); json.load(open('app/src/main/assets/capabilities.json'))"
           diff -q scripts/prompt-benchmark/capabilities.json app/src/main/assets/capabilities.json
-
-      - name: Sync tags to HEAD
-        if: github.event_name == 'push'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git tag -fa latest -m "Latest main"
-          git push origin refs/tags/latest --force
-          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
-          if [ -n "$VERSION" ]; then
-            git tag -fa "v${VERSION}" -m "Release v${VERSION}"
-            git push origin "refs/tags/v${VERSION}" --force
-          fi

@@ -6,6 +6,8 @@
 
 [![CI](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml)
 
+**Quality:** CI (unit + emulator smoke, lint, debug build) · CodeQL · Dependabot · [Release workflow](.github/workflows/release.yml) for APK
+
 ---
 
 ## Features
@@ -102,7 +104,9 @@ Release (maintainers):
 ```bash
 export LOCALCHAT_KEYSTORE_PASS='…'   # or POCKETAI_KEYSTORE_PASS
 bash scripts/gradle-release.sh    # → dist/app-release.apk
-bash scripts/release.sh           # build + GitHub release
+bash scripts/release.sh           # local: build + GitHub Release
+
+# Or: GitHub → Actions → Release → Run workflow (LOCALCHAT_KEYSTORE_PASS secret)
 ```
 
 Requirements: JDK 17+, Android SDK platform **36**, build-tools **35.0.0**.
@@ -118,6 +122,7 @@ Requirements: JDK 17+, Android SDK platform **36**, build-tools **35.0.0**.
 | `models.json` | Downloadable model catalog |
 | `scripts/prompt-benchmark/` | Offline prompt + tool + inject benchmarks |
 | `docs/` | Architecture and maintainer notes |
+| `ARCHITECTURE.md` | Module layout and CI/release flow |
 | `CHANGELOG.md` | Release history |
 
 ---
