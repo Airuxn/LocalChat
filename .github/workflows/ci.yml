@@ -1,7 +1,5 @@
 name: CI
 
-# Tests + tag sync on push to main/master (single job).
-
 on:
   push:
     branches: [main, master]
@@ -17,7 +15,8 @@ permissions:
   contents: write
 
 jobs:
-  test:
+  android:
+    name: Android (tests, lint, debug build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,35 +27,66 @@ jobs:
           java-version: "17"
           cache: gradle
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Run unit tests
         run: ./gradlew test --build-cache --no-daemon
 
-      - name: Benchmark smoke (parse + capabilities sync)
+      - name: Lint
+        run: ./gradlew lint --no-daemon
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-ai-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+  benchmark:
+    name: Benchmark scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile benchmark scripts
         run: |
           python3 -m py_compile scripts/prompt-benchmark/benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/tool_benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/inject_benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/run_all.py
+
+      - name: Capabilities JSON in sync
+        run: |
           python3 -c "import json; json.load(open('scripts/prompt-benchmark/capabilities.json')); json.load(open('app/src/main/assets/capabilities.json'))"
           diff -q scripts/prompt-benchmark/capabilities.json app/src/main/assets/capabilities.json
 
+  sync-tags:
+    name: Sync release tags
+    if: github.event_name == 'push'
+    needs: [android, benchmark]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - name: Sync tags to HEAD
-        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
           git tag -fa latest -m "Latest main"
           git push origin refs/tags/latest --force
-          VERSION=""
-          if [ -f app/build.gradle.kts ]; then
-            VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
-          elif [ -f package.json ]; then
-            VERSION=$(node -p "require('./package.json').version")
-          fi
+          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
           if [ -n "$VERSION" ]; then
             git tag -fa "v${VERSION}" -m "Release v${VERSION}"
             git push origin "refs/tags/v${VERSION}" --force
