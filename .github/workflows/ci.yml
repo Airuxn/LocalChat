@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   android:
@@ -36,11 +36,15 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test --build-cache --no-daemon
 
-      - name: Lint
-        run: ./gradlew lint --no-daemon
+      - name: Lint app and SDK module
+        run: |
+          ./gradlew lint :llama-bro-sdk:lint --no-daemon
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
+
+      - name: Verify debug APK contents
+        run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -70,24 +74,3 @@ jobs:
         run: |
           python3 -c "import json; json.load(open('scripts/prompt-benchmark/capabilities.json')); json.load(open('app/src/main/assets/capabilities.json'))"
           diff -q scripts/prompt-benchmark/capabilities.json app/src/main/assets/capabilities.json
-
-  sync-tags:
-    name: Sync release tags
-    if: github.event_name == 'push'
-    needs: [android, benchmark]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Sync tags to HEAD
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
-          git tag -fa latest -m "Latest main"
-          git push origin refs/tags/latest --force
-          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
-          if [ -n "$VERSION" ]; then
-            git tag -fa "v${VERSION}" -m "Release v${VERSION}"
-            git push origin "refs/tags/v${VERSION}" --force
-          fi
