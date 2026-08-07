@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml)
 
-**Quality:** CI (unit tests, lint, debug build) · CodeQL · Dependabot · manual [Release workflow](.github/workflows/release.yml) for APK
+**Quality:** CI (unit tests, lint, debug build) · CodeQL · Dependabot · manual [Release workflow](.github/workflows/release.yml) for APK · Vercel `ignoreCommand` waits for CI + CodeQL if hosted on Vercel
 
 ---
 
