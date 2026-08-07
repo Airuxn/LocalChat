@@ -12,11 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  android:
-    name: Android (tests, lint, debug build)
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +36,7 @@ jobs:
         run: ./gradlew test --build-cache --no-daemon
 
       - name: Lint app and SDK module
-        run: |
-          ./gradlew lint :llama-bro-sdk:lint --no-daemon
+        run: ./gradlew lint :llama-bro-sdk:lint --no-daemon
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
@@ -46,31 +44,29 @@ jobs:
       - name: Verify debug APK contents
         run: bash scripts/verify-apk.sh app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: pocket-ai-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-
-  benchmark:
-    name: Benchmark scripts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Compile benchmark scripts
+      - name: Benchmark smoke (parse + capabilities sync)
         run: |
           python3 -m py_compile scripts/prompt-benchmark/benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/tool_benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/inject_benchmark.py
           python3 -m py_compile scripts/prompt-benchmark/run_all.py
-
-      - name: Capabilities JSON in sync
-        run: |
           python3 -c "import json; json.load(open('scripts/prompt-benchmark/capabilities.json')); json.load(open('app/src/main/assets/capabilities.json'))"
           diff -q scripts/prompt-benchmark/capabilities.json app/src/main/assets/capabilities.json
+
+      - name: Sync tags to HEAD
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          git tag -fa latest -m "Latest main"
+          git push origin refs/tags/latest --force
+          VERSION=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
+          if [ -n "$VERSION" ]; then
+            git tag -fa "v${VERSION}" -m "Release v${VERSION}"
+            git push origin "refs/tags/v${VERSION}" --force
+          fi
