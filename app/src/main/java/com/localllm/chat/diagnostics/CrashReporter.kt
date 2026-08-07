@@ -334,6 +334,13 @@ object CrashReporter {
     private fun appVersion(): String = runCatching {
         if (!::appContext.isInitialized) return "unknown"
         val pi = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
-        "${pi.versionName} (${pi.longVersionCode})"
+        val code =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                pi.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pi.versionCode.toLong()
+            }
+        "${pi.versionName} ($code)"
     }.getOrDefault("unknown")
 }
