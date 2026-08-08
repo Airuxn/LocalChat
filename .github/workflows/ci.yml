@@ -43,7 +43,7 @@ jobs:
         run: ./gradlew test --build-cache --no-daemon
 
       - name: Generate coverage report
-        run: ./gradlew :app:jacocoTestReport --no-daemon
+        run: ./gradlew :app:jacocoTestReport --rerun-tasks --no-daemon
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
