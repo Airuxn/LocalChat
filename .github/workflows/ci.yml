@@ -43,13 +43,13 @@ jobs:
         run: ./gradlew test --build-cache --no-daemon
 
       - name: Generate coverage report
-        run: ./gradlew :app:jacocoTestReport --rerun-tasks --no-daemon
+        run: ./gradlew :app:createDebugUnitTestCoverageReport --no-daemon
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          files: app/build/reports/coverage/test/debug/report.xml
           fail_ci_if_error: false
           verbose: true
 

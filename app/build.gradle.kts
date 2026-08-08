@@ -105,24 +105,3 @@ dependencies {
     androidTestImplementation("androidx.test:runner:1.6.2")
 }
 
-// JaCoCo coverage report for Codecov
-tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
-    reports {
-        xml.required.set(true)
-        html.required.set(true)
-    }
-    classDirectories.setFrom(
-        fileTree(project.layout.buildDirectory.dir("tmp/kotlin-classes/debug").get().asFile) {
-            exclude("**/R.class", "**/R$*.class", "**/BuildConfig.class")
-        }
-    )
-    sourceDirectories.setFrom(
-        files("src/main/java", "src/main/kotlin")
-    )
-    executionData.setFrom(
-        fileTree(project.layout.buildDirectory.dir("jacoco").get().asFile) {
-            include("testDebugUnitTest.exec")
-        }
-    )
-}
