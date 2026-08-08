@@ -53,7 +53,8 @@ class PromptProfileTest {
             "mid",
             ChatMode.CHAT,
         )
-        assertTrue(chat.contains("NO image", ignoreCase = true))
+        assertTrue(chat.contains("NO photo", ignoreCase = true) || chat.contains("no image", ignoreCase = true))
+        assertTrue(chat.contains("mmproj", ignoreCase = true) || chat.contains("native", ignoreCase = true))
     }
 
     @Test
@@ -70,14 +71,14 @@ class PromptProfileTest {
     }
 
     @Test
-    fun gemmaIdentityIsPocketAi() {
+    fun llama1bIdentityIsPocketAi() {
         val chat = PromptProfile.forAgent(
-            "gemma3-1b-it-q4",
-            "Gemma 3 1B",
+            "llama3.2-1b-q4",
+            "Llama 3.2 1B",
             ModelCategory.STANDARD,
             "low",
             ChatMode.CHAT,
         )
-        assertTrue(chat.contains("Gemma 3 running offline in Airux Pocket AI"))
+        assertTrue(chat.contains("Llama 3.2 running offline in Airux Pocket AI"))
     }
 }

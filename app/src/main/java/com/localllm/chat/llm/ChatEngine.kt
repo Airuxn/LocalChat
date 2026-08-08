@@ -51,6 +51,7 @@ class ChatEngine(
             else -> null
         }
 
+        llmRuntime.beginWork()
         llmRuntime.preload(
             conversationId = conversationId,
             model = model,
@@ -67,18 +68,13 @@ class ChatEngine(
             message = userMessage,
             hasPhotoAttachment = imageBytes != null,
         )
-        val finalMessage = AttachmentAugmenter.augmentWithPhoto(
-            context = context,
-            userMessage = augmented,
-            imageBytes = imageBytes,
-            catalogId = catalogEntry?.id,
-        )
 
         llmRuntime.completeUserMessage(
-            userMessage = finalMessage,
+            userMessage = augmented,
             model = model,
             mode = mode,
             temperatureOverride = tempOverride,
+            imageBytes = imageBytes,
         ).collect { chunk ->
             emit(chunk)
         }

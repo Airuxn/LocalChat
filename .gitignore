@@ -6,6 +6,7 @@ dist/
 .gradle/
 app/build/
 llama-bro-sdk/build/
+llama-bro-sdk/.cxx/
 local.properties
 jadx-out/
 llama-bro-sdk-decompiled/
@@ -27,3 +28,6 @@ benchmark-results/
 
 # Python
 **/__pycache__/
+
+# Upstream llama.cpp clone (fetched by CMake / local NDK build)
+llama-bro-sdk/src/main/cpp/llama.cpp/

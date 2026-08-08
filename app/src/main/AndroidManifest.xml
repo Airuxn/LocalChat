@@ -22,11 +22,6 @@
         android:theme="@style/Theme.PocketAi"
         tools:targetApi="31">
 
-        <!-- Defer ML Kit init until first vision use (avoids startup native/init crashes). -->
-        <provider
-            android:name="com.google.mlkit.common.internal.MlKitInitProvider"
-            tools:node="remove" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

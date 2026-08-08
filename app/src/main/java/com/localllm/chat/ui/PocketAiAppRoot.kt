@@ -219,26 +219,35 @@ private fun ModelsRoute(container: AppContainer, navController: androidx.navigat
 private fun SettingsRoute(container: AppContainer, navController: androidx.navigation.NavController) {
     val vm: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(container))
     val settings by vm.settings.collectAsState(initial = com.localllm.chat.data.repo.SettingsState())
+    val benchRunning by vm.benchRunning.collectAsState()
+    val benchProgress by vm.benchProgress.collectAsState()
+    val benchStatus by vm.benchStatus.collectAsState()
     val context = LocalContext.current
     var showDiagnostics by remember { mutableStateOf(false) }
     if (showDiagnostics) {
         DiagnosticLogDialog(
-            title = "Diagnostic log",
-            body = CrashReporter.formatForDisplay(CrashReporter.getLastReport()),
+            title = "Diagnostic / benchmark log",
+            body = CrashReporter.formatForDisplay(
+                CrashReporter.getExportableDiagnostics() ?: CrashReporter.getLastReport(),
+            ),
             onDismiss = { showDiagnostics = false },
         )
     }
     SettingsScreen(
         settings = settings,
         onBack = { navController.popBackStack() },
-        onTemperature = vm::setTemperature,
-        onContextSize = vm::setContextSize,
-        onMaxTokens = vm::setMaxTokens,
         onSystemPrompt = vm::setSystemPrompt,
         onMemoryEnabled = vm::setMemoryEnabled,
         onShowThinking = vm::setShowThinking,
         onDarkTheme = vm::setDarkTheme,
         onOpenMemory = { navController.navigate("memory") },
+        benchRunning = benchRunning,
+        benchProgress = benchProgress,
+        benchStatus = benchStatus,
+        onClearBenchStatus = vm::clearBenchStatus,
+        onRunSelfCheck = vm::runSelfCheck,
+        onRunFullBenchmark = { vm.runFullBenchmark(activeOnly = false) },
+        onRunActiveBenchmark = { vm.runFullBenchmark(activeOnly = true) },
         onViewDiagnostics = { showDiagnostics = true },
         onShareDiagnostics = { CrashReporter.shareLastReport(context) },
         onCopyDiagnostics = { CrashReporter.copyLastReportToClipboard(context) },
@@ -278,6 +287,8 @@ private fun ChatRoute(
     val averageTokensPerSecond by vm.averageTokensPerSecond.collectAsState()
     val showContinueCode by vm.showContinueCode.collectAsState()
     val hasPendingPhoto by vm.hasPendingPhoto.collectAsState()
+    val canAttachPhoto by vm.canAttachPhoto.collectAsState()
+    val isSearching by vm.isSearching.collectAsState()
     val errorDialog by vm.errorDialog.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -309,7 +320,9 @@ private fun ChatRoute(
         averageTokensPerSecond = averageTokensPerSecond,
         showContinueCode = showContinueCode,
         showThinking = settings.showThinking,
+        isSearching = isSearching,
         hasPendingPhoto = hasPendingPhoto,
+        canAttachPhoto = canAttachPhoto,
         snackbarMessage = snackbar,
         onClearSnackbar = vm::clearSnackbar,
         onBack = { navController.popBackStack() },

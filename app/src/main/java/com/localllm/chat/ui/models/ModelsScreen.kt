@@ -119,7 +119,7 @@ fun ModelsScreen(
         ModelCategorySection(
             id = "vision",
             title = "AI vision",
-            caption = "Photo attach via ML Kit · model + projector",
+            caption = "Native VLM · model + mmproj projector",
             icon = Icons.Default.Image,
             models = visionCatalog,
         ),

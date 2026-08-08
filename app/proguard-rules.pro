@@ -17,11 +17,6 @@
     <init>(...);
 }
 
-# ML Kit vision (initialized via MlKitInitProvider at process start)
--keep class com.google.mlkit.** { *; }
--keep class com.google.android.gms.** { *; }
--dontwarn com.google.android.gms.**
-
 # Kotlin serialization used by model catalog
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**

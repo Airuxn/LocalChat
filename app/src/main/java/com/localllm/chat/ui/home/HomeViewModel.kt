@@ -19,7 +19,10 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         container.chatRepository.createConversation()
 
     fun deleteChat(id: Long) {
-        viewModelScope.launch { container.chatRepository.deleteConversation(id) }
+        viewModelScope.launch {
+            container.llmRuntime.invalidateIfBoundConversation(id)
+            container.chatRepository.deleteConversation(id)
+        }
     }
 }
 

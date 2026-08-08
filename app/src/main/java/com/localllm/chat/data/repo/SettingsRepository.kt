@@ -19,7 +19,7 @@ data class SettingsState(
     val contextSize: Int = 6144,
     val maxTokens: Int = 512,
     val systemPromptOverride: String = "",
-    val showThinking: Boolean = true,
+    val showThinking: Boolean = false,
     val memoryEnabled: Boolean = true,
     /** null = follow system; true/false = manual override. */
     val darkTheme: Boolean? = null,
@@ -42,7 +42,7 @@ class SettingsRepository(private val context: Context) {
             contextSize = prefs[Keys.contextSize] ?: 6144,
             maxTokens = prefs[Keys.maxTokens] ?: 512,
             systemPromptOverride = prefs[Keys.systemPrompt] ?: "",
-            showThinking = prefs[Keys.showThinking] ?: true,
+            showThinking = prefs[Keys.showThinking] ?: false,
             memoryEnabled = prefs[Keys.memoryEnabled] ?: true,
             darkTheme = prefs[Keys.darkTheme],
         )

@@ -1,16 +1,16 @@
 [
   {
-    "id": "gemma3-1b-it-q4",
-    "name": "Gemma 3 1B",
-    "description": "Standard text — best low-tier chat and light coding on 4 GB phones.",
-    "sizeLabel": "~770 MB",
+    "id": "llama3.2-1b-q4",
+    "name": "Llama 3.2 1B",
+    "description": "Standard text — best low-tier chat on 4 GB phones, with on-device web search.",
+    "sizeLabel": "~810 MB",
     "minRamLabel": "4 GB RAM",
-    "fileName": "gemma-3-1b-it-Q4_K_M.gguf",
-    "downloadUrl": "https://huggingface.co/lmstudio-community/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
-    "promptFormat": "GEMMA",
+    "fileName": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "downloadUrl": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+    "promptFormat": "LLAMA_3",
     "category": "standard",
     "tier": "low",
-    "expectedExactBytes": 806058240
+    "expectedExactBytes": 807694464
   },
   {
     "id": "qwen3-1.7b-q4",
@@ -41,7 +41,7 @@
   {
     "id": "smolvlm2-500m-video-vision",
     "name": "SmolVLM2 500M Video",
-    "description": "Vision — photos via ML Kit attach in chat; native VLM projector for future mmproj inference. Downloads model + projector (2 files).",
+    "description": "Native VLM — photos via mmproj projector. Downloads model + projector (2 files). Lightest vision slot for 4 GB phones.",
     "sizeLabel": "~545 MB total",
     "minRamLabel": "4 GB RAM",
     "fileName": "SmolVLM2-500M-Video-Instruct-Q8_0.gguf",
@@ -57,7 +57,7 @@
   {
     "id": "smolvlm2-2.2b-vision",
     "name": "SmolVLM2 2.2B",
-    "description": "Vision — balanced photo understanding for mid-range phones. Downloads model + vision projector (2 files).",
+    "description": "Native VLM — balanced photo understanding for mid-range phones. Downloads model + vision projector (2 files).",
     "sizeLabel": "~1.6 GB total",
     "minRamLabel": "6 GB RAM",
     "fileName": "SmolVLM2-2.2B-Instruct-Q4_K_M.gguf",
@@ -73,7 +73,7 @@
   {
     "id": "gemma3-4b-vision",
     "name": "Gemma 3 4B Vision",
-    "description": "Vision — best on-device photo understanding for high-end phones. Downloads model + vision projector (2 files).",
+    "description": "Native VLM — best on-device photo understanding for high-end phones. Downloads model + vision projector (2 files).",
     "sizeLabel": "~3.3 GB total",
     "minRamLabel": "8 GB RAM",
     "fileName": "gemma-3-4b-it-Q4_K_M.gguf",

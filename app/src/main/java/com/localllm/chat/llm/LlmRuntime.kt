@@ -6,6 +6,7 @@ import com.localllm.chat.data.catalog.ModelCatalog
 import com.localllm.chat.data.db.ModelEntity
 import com.localllm.chat.data.repo.SettingsRepository
 import com.localllm.chat.data.repo.SettingsState
+import com.localllm.chat.device.DeviceRam
 import com.localllm.chat.domain.ChatMode
 import com.localllm.chat.diagnostics.CrashReporter
 import com.localllm.chat.tools.NativeToolDefinitions
@@ -14,6 +15,7 @@ import com.localllm.chat.tools.ToolCallParser
 import com.suhel.llamabro.sdk.chat.ChatEvent
 import com.suhel.llamabro.sdk.chat.CompletionResult
 import com.suhel.llamabro.sdk.chat.LlamaChatSession
+import com.suhel.llamabro.sdk.config.DecodeConfig
 import com.suhel.llamabro.sdk.config.InferenceConfig
 import com.suhel.llamabro.sdk.config.LoadableModel
 import com.suhel.llamabro.sdk.config.ModelLoadConfig
@@ -32,6 +34,7 @@ import com.suhel.llamabro.sdk.toolcall.XmlToolFormats
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -41,12 +44,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** One message turn for prompt replay. */
 data class ChatTurn(val role: String, val content: String, val thinking: String? = null)
 
 /** Streaming token + optional throughput stats. */
-data class StreamChunk(val text: String, val stats: GenerationStats? = null)
+data class StreamChunk(
+    val text: String,
+    val stats: GenerationStats? = null,
+    val thinkingSoFar: String? = null,
+    val toolActive: Boolean = false,
+)
 
 class LlmRuntime(
     private val context: Context,
@@ -62,6 +72,12 @@ class LlmRuntime(
 
     private var chatSession: LlamaChatSession? = null
     private var chatBindKey: String? = null
+    private var boundConversationId: Long? = null
+
+    private val loadCancelled = AtomicBoolean(false)
+    private val generationActive = AtomicBoolean(false)
+    /** When true, TRIM_MEMORY must not drop chat bind / unload mid bench or chat. */
+    private val workPinned = AtomicBoolean(false)
 
     private val _loadProgress = MutableStateFlow<Float?>(null)
     val loadProgress: StateFlow<Float?> = _loadProgress.asStateFlow()
@@ -69,12 +85,42 @@ class LlmRuntime(
     private val _modelReady = MutableStateFlow(false)
     val modelReady: StateFlow<Boolean> = _modelReady.asStateFlow()
 
-    private fun buildBindKey(
+    /** Bind warm chat session: conversation + model + tools + mode + system prompt. */
+    internal fun buildBindKey(
         conversationId: Long,
         modelPath: String,
         nativeTools: List<String>,
         mode: ChatMode,
-    ): String = "$conversationId:$modelPath:tools=${nativeTools.sorted().joinToString(",")}:mode=${mode.name}"
+        systemPrompt: String,
+    ): String =
+        "$conversationId:$modelPath:tools=${nativeTools.sorted().joinToString(",")}" +
+            ":mode=${mode.name}:sp=${systemPrompt.hashCode()}"
+
+    /** Call before a new send so a prior Stop does not poison the next load. */
+    fun beginWork() {
+        loadCancelled.set(false)
+    }
+
+    /** Pin runtime across a multi-turn job (on-device bench). */
+    fun setWorkPinned(pinned: Boolean) {
+        workPinned.set(pinned)
+        CrashReporter.breadcrumbSync("workPinned=$pinned")
+    }
+
+    /** Drop warm chat bind only when not mid-generation / pinned work. */
+    fun invalidateChatBindingForMemoryPressure() {
+        if (workPinned.get() || generationActive.get()) {
+            CrashReporter.breadcrumbSync("invalidateChatBinding skipped (pinned/generating)")
+            return
+        }
+        invalidateChatBinding()
+    }
+
+    /** Stop mid-load (progress callback) and mid-generate (native abort). */
+    fun requestCancelAndAbort() {
+        loadCancelled.set(true)
+        abortGeneration()
+    }
 
     suspend fun preload(
         conversationId: Long,
@@ -86,10 +132,7 @@ class LlmRuntime(
         temperatureOverride: Float? = null,
         onProgress: ((Float) -> Boolean)? = null,
     ) {
-        mutex.withLock {
-            _modelReady.value = false
-            _loadProgress.value = 0f
-        }
+        mutex.withLock { _modelReady.value = false }
         try {
             prepareChatSession(
                 conversationId, model, mode, systemPrompt, priorTurns,
@@ -120,19 +163,29 @@ class LlmRuntime(
                 activeModel?.filePath != model.filePath ||
                     engine == null ||
                     nativeTools != loadedNativeTools ||
-                    contextSize > loadedContextSize
+                    contextSize != loadedContextSize
             if (!mustReload) return@withLock
 
-            CrashReporter.breadcrumbSync("ensureLoaded: reloading model=${model.name} ctx=$contextSize tools=$nativeTools")
+            CrashReporter.breadcrumbSync(
+                "ensureLoaded: reloading model=${model.name} ctx=$contextSize tools=$nativeTools",
+            )
+            // Abort any in-flight generate before tearing down native ptrs.
+            session?.abort()
             unloadLocked()
+            _loadProgress.value = 0f
+
             val inference = sessionInferenceForV1(
                 settingsTemp = temp,
                 useToolInferenceParams = toolsActive,
                 isCoding = mode == ChatMode.CODING,
             )
             val modelPath = java.io.File(model.filePath).absolutePath
+            val mmprojPath = resolveMmprojPath(model)
+            if (PromptProfile.resolveCatalogEntry(context, model)?.requiresMmproj == true && mmprojPath == null) {
+                error("Vision projector (mmproj) missing — re-download this model")
+            }
             val loadable = LoadableModel(
-                loadConfig = ModelLoadConfig(path = modelPath),
+                loadConfig = ModelLoadConfig(path = modelPath, mmprojPath = mmprojPath),
                 profile = profileFor(model, catalogId, nativeTools),
             )
             val lastProgressBucket = intArrayOf(-1)
@@ -144,31 +197,52 @@ class LlmRuntime(
                     CrashReporter.breadcrumbSync("load progress $pct%")
                 }
                 _loadProgress.value = progress
-                onProgress?.invoke(progress) ?: true
+                val continueLoad = !loadCancelled.get() && (onProgress?.invoke(progress) ?: true)
+                continueLoad
             }
             val modelFile = java.io.File(model.filePath)
             CrashReporter.breadcrumbSync("model file bytes=${modelFile.length()}")
-            val (newEngine, newSession) = withContext(NativeDispatchers.Single) {
-                CrashReporter.breadcrumbSync("native lib ready")
-                CrashReporter.breadcrumbSync("LlamaEngine.create path=$modelPath")
-                val engine = LlamaEngine.create(loadable, progressHandler)
-                CrashReporter.breadcrumbSync("LlamaEngine.create done")
-                val session = createSessionV1(
-                    engine = engine,
-                    contextSize = contextSize,
-                    inference = inference,
-                    useToolCallingSessionLayout = toolsActive,
-                )
-                engine to session
+
+            var createdEngine: LlamaEngine? = null
+            var createdSession: LlamaSession? = null
+            try {
+                if (loadCancelled.get()) error("Model load cancelled")
+                val pair = withContext(NativeDispatchers.Single) {
+                    CrashReporter.breadcrumbSync("native lib ready")
+                    CrashReporter.breadcrumbSync("LlamaEngine.create path=$modelPath")
+                    val eng = LlamaEngine.create(loadable, progressHandler)
+                    createdEngine = eng
+                    if (loadCancelled.get()) {
+                        eng.close()
+                        createdEngine = null
+                        error("Model load cancelled")
+                    }
+                    CrashReporter.breadcrumbSync("LlamaEngine.create done")
+                    val sess = createSessionV1(
+                        engine = eng,
+                        contextSize = contextSize,
+                        inference = inference,
+                        useToolCallingSessionLayout = toolsActive,
+                        isVision = mmprojPath != null,
+                    )
+                    createdSession = sess
+                    eng to sess
+                }
+                CrashReporter.breadcrumbSync("createSession done")
+                engine = pair.first
+                session = pair.second
+                createdEngine = null
+                createdSession = null
+                activeModel = model
+                loadedContextSize = contextSize
+                loadedNativeTools = nativeTools
+                loadedTemperature = temp
+                invalidateChatBinding()
+            } catch (t: Throwable) {
+                createdSession?.close()
+                createdEngine?.close()
+                throw t
             }
-            CrashReporter.breadcrumbSync("createSession done")
-            engine = newEngine
-            session = newSession
-            activeModel = model
-            loadedContextSize = contextSize
-            loadedNativeTools = nativeTools
-            loadedTemperature = temp
-            invalidateChatBinding()
         }
     }
 
@@ -185,14 +259,19 @@ class LlmRuntime(
         ensureLoaded(model, mode, settings, temperatureOverride, onProgress)
         val catalogId = PromptProfile.resolveCatalogEntry(context, model)?.id
         val nativeTools = ModelCapabilities.nativeToolsFor(context, catalogId)
-        val bindKey = buildBindKey(conversationId, model.filePath, nativeTools, mode)
+        val bindKey = buildBindKey(conversationId, model.filePath, nativeTools, mode, systemPrompt)
         val toolDefs = NativeToolDefinitions.forNativeTools(nativeTools)
         val toolCaller = if (toolDefs.isNotEmpty()) buildToolCaller() else null
 
         mutex.withLock {
             if (chatSession != null && chatBindKey == bindKey) return@withLock
             val llamaSession = session ?: error("Model session not ready")
-            CrashReporter.breadcrumbSync("createChatSession bindKey=$bindKey tools=${toolDefs.size}")
+            CrashReporter.breadcrumbSync("rebind chat session bindKey=$bindKey tools=${toolDefs.size}")
+            // Drop Kotlin wrapper and reset native KV so prior chat tokens cannot leak in.
+            chatSession = null
+            chatBindKey = null
+            runCatching { llamaSession.clear() }
+                .onFailure { CrashReporter.breadcrumbSync("session.clear failed: ${it.message}") }
             chatSession = llamaSession.createChatSession(systemPrompt, toolCaller = toolCaller)
             CrashReporter.breadcrumbSync("initialize tools=${toolDefs.size}")
             chatSession!!.initialize(toolDefs)
@@ -202,6 +281,7 @@ class LlmRuntime(
                 chatSession!!.feedHistory(history)
             }
             chatBindKey = bindKey
+            boundConversationId = conversationId
         }
     }
 
@@ -210,6 +290,7 @@ class LlmRuntime(
         model: ModelEntity,
         mode: ChatMode,
         temperatureOverride: Float? = null,
+        imageBytes: ByteArray? = null,
     ): Flow<StreamChunk> = flow {
         val chat = mutex.withLock {
             chatSession ?: error("Chat session not initialized — call prepareChatSession first")
@@ -218,51 +299,129 @@ class LlmRuntime(
         val toolsActive = ModelCapabilities.hasNativeTools(context, catalogId)
         val inference = completionInference(model, mode, temperatureOverride, toolsActive)
         var lastLen = 0
-        CrashReporter.breadcrumbSync("completion start userLen=${userMessage.length}")
-        chat.completion(ChatEvent.UserEvent(userMessage, think = false), inference).collect { result ->
-            when (result) {
-                is CompletionResult.Streaming -> {
-                    CrashReporter.breadcrumbSync("completion stream tokens=${result.events.size}")
-                    val text = displayTextFromParts(result.events)
-                    if (text.length > lastLen) {
-                        emit(
-                            StreamChunk(
-                                text.substring(lastLen),
-                                GenerationStats(result.tokensPerSecond, isFinal = false),
-                            ),
-                        )
-                        lastLen = text.length
+        generationActive.set(true)
+        try {
+            val mtmdImage = imageBytes?.let { raw ->
+                val catalog = PromptProfile.resolveCatalogEntry(context, model)
+                // Gemma 3 4B previously used a tighter 256 px cap to avoid the native
+                // ggml_abort that was triggered by microBatchSize < image tokens. With that
+                // bug fixed, use the same 384 px cap as the other VLMs so the count fixture
+                // has enough detail for all vision models.
+                val maxEdge = ImagePixelCodec.MAX_EDGE
+                ImagePixelCodec.toMtmdPng(raw, maxEdge = maxEdge)
+                    ?: error("IMAGE_DECODE_FAILED")
+            }
+            CrashReporter.breadcrumbSync(
+                "completion start userLen=${userMessage.length} image=${mtmdImage?.size ?: 0}",
+            )
+            chat.completion(
+                ChatEvent.UserEvent(userMessage, think = false, imageBytes = mtmdImage),
+                inference,
+            ).collect { result ->
+                when (result) {
+                    is CompletionResult.Streaming -> {
+                        CrashReporter.breadcrumbSync("completion stream tokens=${result.events.size}")
+                        val text = displayTextFromParts(result.events)
+                        val thinking = thinkingTextFromParts(result.events)
+                        val toolActive = result.events.lastOrNull {
+                            it !is ChatEvent.AssistantPart.ThinkingPart
+                        } is ChatEvent.AssistantPart.ToolCallPart
+                        if (text.length > lastLen || thinking != null || toolActive) {
+                            emit(
+                                StreamChunk(
+                                    text = if (text.length > lastLen) text.substring(lastLen) else "",
+                                    stats = GenerationStats(result.tokensPerSecond, isFinal = false),
+                                    thinkingSoFar = thinking,
+                                    toolActive = toolActive,
+                                ),
+                            )
+                            lastLen = text.length.coerceAtLeast(lastLen)
+                        }
                     }
-                }
-                is CompletionResult.Complete -> {
-                    val text = displayTextFromParts(result.events)
-                    if (text.length > lastLen) {
-                        emit(
-                            StreamChunk(
-                                text.substring(lastLen),
-                                GenerationStats(result.tokensPerSecond, isFinal = true),
-                            ),
-                        )
-                    } else if (result.tokensPerSecond > 0f) {
-                        emit(StreamChunk("", GenerationStats(result.tokensPerSecond, isFinal = true)))
+                    is CompletionResult.Complete -> {
+                        val text = displayTextFromParts(result.events)
+                        val thinking = thinkingTextFromParts(result.events)
+                        val toolActive = result.events.lastOrNull {
+                            it !is ChatEvent.AssistantPart.ThinkingPart
+                        } is ChatEvent.AssistantPart.ToolCallPart
+                        if (text.length > lastLen) {
+                            emit(
+                                StreamChunk(
+                                    text.substring(lastLen),
+                                    GenerationStats(result.tokensPerSecond, isFinal = true),
+                                    thinkingSoFar = thinking,
+                                    toolActive = toolActive,
+                                ),
+                            )
+                        } else {
+                            emit(
+                                StreamChunk(
+                                    "",
+                                    GenerationStats(result.tokensPerSecond, isFinal = true),
+                                    thinkingSoFar = thinking,
+                                    toolActive = toolActive,
+                                ),
+                            )
+                        }
+                        // User abort can surface as Complete(CANCELLED) — still scrub KV.
+                        if (loadCancelled.get()) {
+                            invalidateChatBindingAsync()
+                        }
                     }
-                }
-                is CompletionResult.Error -> {
-                    invalidateChatBindingAsync()
-                    throw IllegalStateException(result.message, result.cause)
+                    is CompletionResult.Error -> {
+                        invalidateChatBindingAsync()
+                        throw IllegalStateException(result.message, result.cause)
+                    }
                 }
             }
+            CrashReporter.breadcrumbSync("completion done")
+        } finally {
+            generationActive.set(false)
         }
-        CrashReporter.breadcrumbSync("completion done")
     }
 
-    suspend fun unload() = mutex.withLock {
-        unloadLocked()
-        _modelReady.value = false
+    suspend fun unload() {
+        requestCancelAndAbort()
+        waitForGenerationIdle()
+        mutex.withLock {
+            unloadLocked()
+            _modelReady.value = false
+            _loadProgress.value = null
+        }
     }
 
     fun abortGeneration() {
         session?.abort()
+    }
+
+    /** After Stop / cancel: drop warm bind and clear native KV. */
+    fun onGenerationCancelled() {
+        invalidateChatBindingAsync()
+    }
+
+    /** Home delete: drop warm bind if it points at the deleted conversation. */
+    suspend fun invalidateIfBoundConversation(conversationId: Long) {
+        val shouldClear = mutex.withLock {
+            if (boundConversationId != conversationId) return@withLock false
+            chatSession = null
+            chatBindKey = null
+            boundConversationId = null
+            true
+        }
+        if (shouldClear) {
+            val s = session ?: return
+            runCatching { s.clear() }
+        }
+    }
+
+    /** Release weights under memory pressure (LMK / trim). */
+    suspend fun unloadForMemoryPressure() {
+        if (workPinned.get() || generationActive.get()) {
+            CrashReporter.breadcrumbSync("unloadForMemoryPressure skipped (pinned/generating)")
+            return
+        }
+        CrashReporter.breadcrumbSync("unloadForMemoryPressure")
+        unload()
     }
 
     private val errorScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -271,6 +430,14 @@ class LlmRuntime(
         invalidateChatBinding()
         val s = session ?: return
         errorScope.launch { runCatching { s.clear() } }
+    }
+
+    private suspend fun waitForGenerationIdle(timeoutMs: Long = 5_000L) {
+        withTimeoutOrNull(timeoutMs) {
+            while (generationActive.get()) {
+                delay(40)
+            }
+        }
     }
 
     private fun buildToolCaller(): ToolCaller = { calls ->
@@ -301,10 +468,13 @@ class LlmRuntime(
     fun invalidateChatBinding() {
         chatSession = null
         chatBindKey = null
+        boundConversationId = null
     }
 
     private fun unloadLocked() {
         chatSession = null
+        chatBindKey = null
+        boundConversationId = null
         session?.close()
         engine?.close()
         session = null
@@ -312,13 +482,19 @@ class LlmRuntime(
         activeModel = null
         loadedContextSize = 0
         loadedNativeTools = emptyList()
-        invalidateChatBinding()
     }
 
     private fun displayTextFromParts(parts: List<ChatEvent.AssistantPart>): String {
         val raw = parts.filterIsInstance<ChatEvent.AssistantPart.TextPart>()
             .joinToString("") { it.content }
         return ToolCallParser.stripToolCalls(ThinkingSanitizer.stripForDisplay(raw))
+    }
+
+    private fun thinkingTextFromParts(parts: List<ChatEvent.AssistantPart>): String? {
+        val thinking = parts.filterIsInstance<ChatEvent.AssistantPart.ThinkingPart>()
+            .joinToString("") { it.content }
+            .trim()
+        return thinking.takeIf { it.isNotEmpty() }
     }
 
     private fun ChatTurn.toChatEvent(): ChatEvent? = when (role.lowercase()) {
@@ -335,6 +511,14 @@ class LlmRuntime(
             if (parts.isEmpty()) null else ChatEvent.AssistantEvent(parts)
         }
         else -> null
+    }
+
+    private fun resolveMmprojPath(model: ModelEntity): String? {
+        val entry = PromptProfile.resolveCatalogEntry(context, model) ?: return null
+        val name = entry.mmprojFileName ?: return null
+        val dir = java.io.File(model.filePath).parentFile ?: return null
+        val file = java.io.File(dir, name)
+        return file.takeIf { it.isFile && it.length() > 0L }?.absolutePath
     }
 
     private fun validateModelFile(model: ModelEntity) {
@@ -379,8 +563,9 @@ class LlmRuntime(
     }
 
     private fun effectiveContextSize(model: ModelEntity, requested: Int): Int {
-        val minimum = maxOf(requested, 6144)
-        return minimum.coerceIn(1024, 8192)
+        val ram = DeviceRam.detect(context)
+        val isVision = PromptProfile.resolveCatalogEntry(context, model)?.isVision == true
+        return LoadContextPolicy.effectiveContextSize(ram.totalBytes, requested, isVision = isVision)
     }
 
     private suspend fun createSessionV1(
@@ -388,20 +573,27 @@ class LlmRuntime(
         contextSize: Int,
         inference: InferenceConfig,
         useToolCallingSessionLayout: Boolean,
+        isVision: Boolean = false,
     ): LlamaSession {
         var ctx = contextSize
         while (true) {
-            val decode = sessionConfigForV1(ctx, inference, useToolCallingSessionLayout).decodeConfig
-            val (batch, micro) = LlamaSessionCore.resolveDecodeBatch(decode, ctx)
-            CrashReporter.breadcrumbSync("createSession ctx=$ctx batch=$batch/$micro tools=$useToolCallingSessionLayout")
+            val base = sessionConfigForV1(ctx, inference, useToolCallingSessionLayout)
+            // mtmd decodes a whole image chunk's vision tokens in a single native batch call —
+            // it cannot be split across micro-batches like text can. The default ubatch=128
+            // is smaller than a typical VLM image chunk (e.g. Gemma3's ~256 tokens/tile), which
+            // trips a GGML_ASSERT deep in ggml_abort -> SIGABRT, killing the whole process with
+            // no Java exception to catch. Force a large enough ubatch for vision sessions.
+            val config = if (isVision) {
+                base.copy(decodeConfig = DecodeConfig(batchSize = 512, microBatchSize = 512))
+            } else {
+                base
+            }
+            val (batch, micro) = LlamaSessionCore.resolveDecodeBatch(config.decodeConfig, ctx)
+            CrashReporter.breadcrumbSync(
+                "createSession ctx=$ctx batch=$batch/$micro tools=$useToolCallingSessionLayout vision=$isVision",
+            )
             try {
-                return engine.createSession(
-                    sessionConfigForV1(
-                        contextSize = ctx,
-                        inference = inference,
-                        useToolCallingSessionLayout = useToolCallingSessionLayout,
-                    ),
-                )
+                return engine.createSession(config)
             } catch (e: RuntimeException) {
                 if (e.message == "10" && ctx > 2048) {
                     ctx = (ctx * 2 / 3).coerceAtLeast(2048)

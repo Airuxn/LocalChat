@@ -230,6 +230,8 @@ public final class LlamaSessionImpl {
 
         public static native void addUserPrompt(long sessionPtr, String prompt);
 
+        public static native void addUserPromptWithImage(long sessionPtr, String prompt, byte[] imageBytes);
+
         public static native void clear(long sessionPtr);
 
         public static native void abort(long sessionPtr);

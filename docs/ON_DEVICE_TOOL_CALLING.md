@@ -100,7 +100,7 @@ When `native_tools` is non-empty, `LlmRuntime`:
 2. Adjusts inference params via `useToolInferenceParams=true`
 3. Reloads the model if the tool set changes (bind key includes sorted tool names)
 
-Gemma, Dolphin, and vision models keep photo analysis via **inject_tools** (ML Kit text in the user message) but do not get native tool definitions — benchmarks showed poor tool-call reliability at their sizes.
+Gemma, Dolphin, and vision models do **not** get native tool definitions — benchmarks showed poor tool-call reliability at their sizes. Vision models use **native mmproj / mtmd** for photos instead.
 
 ---
 

@@ -29,6 +29,12 @@ class ModelCatalogTest {
     }
 
     @Test
+    fun lowTierStandardIsLlama1bWithWebSearchSlot() {
+        val context = RuntimeEnvironment.getApplication()
+        assertEquals("llama3.2-1b-q4", ModelCatalog.forSelection(context, "sensored", "low")?.id)
+    }
+
+    @Test
     fun uncensoredModelsUseChatMl() {
         val context = RuntimeEnvironment.getApplication()
         val uncensored = ModelCatalog.uncensoredModels(context)

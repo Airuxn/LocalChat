@@ -11,7 +11,7 @@
 | Chat messages | Room DB (app-private) | No |
 | GGUF models | App files dir | No (direct HF download) |
 | Settings & memory | Room / DataStore | No |
-| Photos (attach) | In-memory / temp for ML Kit | No upload |
+| Photos (attach) | In-memory bytes → native VLM (mmproj) | No upload |
 | Web search queries | DuckDuckGo HTTPS only | Yes — user/model initiated |
 
 ## Network
@@ -35,7 +35,7 @@
 
 ## Dependencies
 
-- On-device: llama.cpp JNI, Room, Jetpack Compose, ML Kit (object/label detection).
+- On-device: llama.cpp JNI (+ mtmd for vision), Room, Jetpack Compose.
 - Network: DuckDuckGo (optional tool path), Hugging Face (model downloads).
 
 Keep dependencies updated via Gradle lockfiles / version catalogs. Run `./gradlew test` and review release notes before shipping.

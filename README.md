@@ -16,7 +16,7 @@
 - **9-model catalog** — Qwen3, Llama 3.2, Gemma, Dolphin (uncensored), SmolVLM vision
 - **Per-model personalities** — tuned prompts for identity, coding, and uncensored behavior
 - **Native web search** — Qwen3 1.7B and Llama 3.2 3B (XML tool format, benchmark-validated)
-- **Photo attach** — ML Kit analysis injected into chat (all models)
+- **Photo attach** — native VLM (GGUF + mmproj) on vision models only
 - **Memory & coding mode** — per-chat context, continue-code flow for long generations
 - **No accounts** — Room DB and models stay on device
 
@@ -28,12 +28,12 @@ Models download in-app from Hugging Face. Tier picks the best fit for your phone
 
 | Model | Category | Size | Min RAM | Native tools |
 |-------|----------|------|---------|--------------|
-| Gemma 3 1B | Standard | ~770 MB | 4 GB | — |
+| Llama 3.2 1B | Standard | ~810 MB | 4 GB | `web_search` |
 | Qwen3 1.7B | Standard | ~1.2 GB | 6 GB | `web_search` |
 | Llama 3.2 3B | Standard | ~1.9 GB | 8 GB | `web_search` |
-| SmolVLM2 500M Video | Vision | ~545 MB | 4 GB | — |
-| SmolVLM2 2.2B | Vision | ~1.6 GB | 6 GB | — |
-| Gemma 3 4B Vision | Vision | ~3.3 GB | 8 GB | — |
+| SmolVLM2 500M Video | Vision | ~545 MB total | 4 GB | — |
+| SmolVLM2 2.2B | Vision | ~1.6 GB total | 6 GB | — |
+| Gemma 3 4B Vision | Vision | ~3.3 GB total | 8 GB | — |
 | Dolphin 3.0 1B | Uncensored | ~810 MB | 4 GB | — |
 | Dolphin 3.0 1.5B | Uncensored | ~940 MB | 6 GB | — |
 | Dolphin 3.0 3B | Uncensored | ~1.9 GB | 8 GB | — |
@@ -62,7 +62,7 @@ Open the APK on your device, allow install from unknown sources if prompted, the
 ├─────────────────────────────────────────────────────────┤
 │  ChatEngine → LlmRuntime → llama-bro-sdk → libllama_bro │
 ├─────────────────────────────────────────────────────────┤
-│  PromptProfile · ModelCapabilities · AttachmentAugmenter│
+│  PromptProfile · ModelCapabilities                    │
 │  NativeToolExecutor · WebSearchClient (network)         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -131,7 +131,7 @@ Requirements: JDK 17+, Android SDK platform **36**, build-tools **35.0.0**.
 
 ## Stack
 
-Kotlin · Jetpack Compose · Room · llama.cpp JNI · ML Kit · minSdk 26 · targetSdk 36
+Kotlin · Jetpack Compose · Room · llama.cpp JNI (+ mtmd) · minSdk 26 · targetSdk 36
 
 ---
 
@@ -167,7 +167,7 @@ Downloaded GGUF models remain subject to their upstream licenses (see each model
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) and [Room](https://developer.android.com/training/data-storage/room) — Android UI and local storage
 - [Hugging Face](https://huggingface.co/) — GGUF model hosting
 - [DuckDuckGo](https://duckduckgo.com/) — optional web search
-- [ML Kit](https://developers.google.com/ml-kit) — on-device photo analysis
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) — on-device LLM + mtmd vision
 
 ---
 

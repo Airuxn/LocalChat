@@ -21,7 +21,8 @@ import java.util.concurrent.Executors
  * Captures crashes and inference errors on-device.
  * - Uncaught exceptions → saved + shown on next launch
  * - Handled errors (chat send) → saved + can share/copy
- * - Breadcrumbs flushed to disk before native calls (survives native SIGSEGV)
+ * - Breadcrumbs flushed to disk before native calls (survives native SIGSEGV / LMK)
+ * - Incomplete trail after cold start → PROCESS_KILL report (not buried under old bench)
  */
 object CrashReporter {
     private const val TAG = "PocketAiCrash"
@@ -72,7 +73,7 @@ object CrashReporter {
                 .edit()
                 .putString(KEY_LAST_BREADCRUMB, message.trim())
                 .putLong(KEY_LAST_BREADCRUMB_AT, System.currentTimeMillis())
-                .apply()
+                .commit()
             trimTrailFileIfNeeded()
             Log.d(TAG, message)
         }
@@ -93,38 +94,64 @@ object CrashReporter {
         )
     }
 
-    /** Latest full report, or breadcrumb trail when native crash left no Java stack trace. */
+    /**
+     * Latest diagnostic file. Prefer PROCESS_KILL / FATAL over a stale completed bench report
+     * when the process died mid-vision / mid-inference.
+     */
     fun getLastReport(): String? {
+        if (!::appContext.isInitialized) return null
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_PENDING_NATIVE, false)) {
+            latestLogFile()?.takeIf { it.nameContainsKillOrFatal() }?.readText()?.let { return it }
+            buildKillSuspectReport()?.let { return it }
+        }
         latestLogFile()?.readText()?.let { return it }
-        return buildBreadcrumbOnlyReport()
+        return buildKillSuspectReport()
     }
 
     fun hasPendingStartupReport(): Boolean {
         if (!::appContext.isInitialized) return false
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_PENDING, false) && getLastReport() != null) return true
-        // Native SIGSEGV: no uncaught handler, but breadcrumbs + SharedPrefs survive.
         return prefs.getBoolean(KEY_PENDING_NATIVE, false) && getLastReport() != null
     }
 
-    /** Call on cold start — surfaces last breadcrumb if process died mid-inference. */
+    /**
+     * Cold start: if the previous process died mid-bench / mid-vision / mid-generate,
+     * persist a PROCESS_KILL report as the newest log file so Share/Copy is not the old bench.
+     */
     fun flagNativeCrashIfTrailLooksIncomplete() {
         if (!::appContext.isInitialized) return
         val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getBoolean(KEY_PENDING, false)) return
         val lastStep = lastMeaningfulBreadcrumb() ?: return
-        if (lastStep.startsWith("completion done") || lastStep.startsWith("completion stream")) return
-        if (lastStep.contains("completion start") ||
-            lastStep.contains("native lib ready") ||
-            lastStep.contains("load progress") ||
-            lastStep.contains("createSession") ||
-            lastStep.contains("feedHistory") ||
-            lastStep.contains("initialize") ||
-            lastStep.contains("createChatSession") ||
-            lastStep.contains("jni:")
-        ) {
-            prefs.edit().putBoolean(KEY_PENDING_NATIVE, true).apply()
-        }
+        if (isCleanShutdownBreadcrumb(lastStep)) return
+        val trail = trailFile().takeIf { it.exists() }?.readText().orEmpty()
+        val benchOpen = trailHasOpenBenchPin(trail)
+        val visionOrBenchRisk =
+            benchOpen ||
+                lastStep.contains("image=", ignoreCase = true) ||
+                lastStep.contains("with_image", ignoreCase = true) ||
+                lastStep.contains("bench checkpoint", ignoreCase = true) ||
+                lastStep.contains("completion start", ignoreCase = true) ||
+                lastStep.contains("completion stream", ignoreCase = true)
+        if (!visionOrBenchRisk) return
+        prefs.edit().putBoolean(KEY_PENDING_NATIVE, true).commit()
+        persistKillSuspectReport(lastStep)
+    }
+
+    private fun trailHasOpenBenchPin(trail: String): Boolean {
+        val pinnedOn = trail.lastIndexOf("BREADCRUMB workPinned=true")
+        if (pinnedOn < 0) return false
+        val pinnedOff = trail.lastIndexOf("BREADCRUMB workPinned=false")
+        return pinnedOff < pinnedOn
+    }
+
+    private fun isCleanShutdownBreadcrumb(step: String): Boolean {
+        val s = step.lowercase()
+        return s.startsWith("bench done") ||
+            s.startsWith("self_check saved") ||
+            s == "workpinned=false"
     }
 
     fun clearPendingStartupReport() {
@@ -133,11 +160,11 @@ object CrashReporter {
             .edit()
             .putBoolean(KEY_PENDING, false)
             .putBoolean(KEY_PENDING_NATIVE, false)
-            .apply()
+            .commit()
     }
 
     fun copyLastReportToClipboard(context: Context): Boolean {
-        val text = getLastReport() ?: return false
+        val text = getExportableDiagnostics() ?: return false
         return runCatching {
             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(
@@ -151,8 +178,8 @@ object CrashReporter {
     }
 
     fun shareLastReport(context: Context): Boolean {
-        val text = getLastReport() ?: return false
-        val file = latestLogFile() ?: File(logsDir(), "share_snapshot.txt").also {
+        val text = getExportableDiagnostics() ?: return false
+        val file = File(logsDir(), "export_${System.currentTimeMillis()}.txt").also {
             it.writeText(text)
         }
         return runCatching {
@@ -174,7 +201,7 @@ object CrashReporter {
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            context.startActivity(Intent.createChooser(intent, "Share crash log"))
+            context.startActivity(Intent.createChooser(intent, "Share diagnostic log"))
             true
         }.getOrElse { e ->
             Log.e(TAG, "share failed", e)
@@ -182,8 +209,89 @@ object CrashReporter {
         }
     }
 
+    /**
+     * Full export: kill/crash report first when present, then last bench, then trail.
+     */
+    fun getExportableDiagnostics(): String? {
+        if (!::appContext.isInitialized) return null
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val pendingKill = prefs.getBoolean(KEY_PENDING_NATIVE, false) || prefs.getBoolean(KEY_PENDING, false)
+        val killOrFatal = latestLogFile()?.takeIf {
+            it.nameContainsKillOrFatal() || pendingKill
+        }?.readText()
+            ?: if (pendingKill) buildKillSuspectReport() else null
+        val latest = latestLogFile()?.readText()
+        val trail = trailFile().takeIf { it.exists() }?.readText()?.trim().orEmpty()
+        if (killOrFatal.isNullOrBlank() && latest.isNullOrBlank() && trail.isEmpty()) return null
+        return buildString {
+            appendLine("=== Airux Pocket AI Full Diagnostics Export ===")
+            appendLine("time: ${timestamp()}")
+            appendLine("app: ${appVersion()}")
+            appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL} API ${Build.VERSION.SDK_INT}")
+            appendLine("abi: ${Build.SUPPORTED_ABIS.joinToString()}")
+            if (!killOrFatal.isNullOrBlank()) {
+                appendLine()
+                appendLine("--- process kill / crash (primary) ---")
+                appendLine(killOrFatal.trim())
+            }
+            if (!latest.isNullOrBlank() && latest.trim() != killOrFatal?.trim()) {
+                appendLine()
+                appendLine("--- last report (may be prior completed bench) ---")
+                appendLine(latest.trim())
+            }
+            if (trail.isNotEmpty()) {
+                appendLine()
+                appendLine("--- breadcrumb trail (full) ---")
+                appendLine(trail.takeLast(MAX_TRAIL_FILE_CHARS))
+            }
+        }
+    }
+
+    /** Persist a self-check / completed-bench report as a diagnostic file. */
+    fun saveSelfCheckReport(body: String) {
+        if (!::appContext.isInitialized) return
+        runCatching {
+            val file = newLogFile("report")
+            val trail = trailFile().takeIf { it.exists() }?.readText()?.trim().orEmpty()
+            file.writeText(
+                buildString {
+                    appendLine(body.trim())
+                    appendLine()
+                    appendLine("--- breadcrumb trail ---")
+                    appendLine(trail.takeLast(MAX_TRAIL_CHARS))
+                },
+            )
+            trimOldLogs()
+            breadcrumbSync("self_check saved ${file.name}")
+        }
+    }
+
+    /**
+     * Flush a partial bench before a risky vision turn so a LMK kill still leaves
+     * a readable "died at …" checkpoint (not only the previous full run).
+     */
+    fun saveBenchCheckpoint(body: String) {
+        if (!::appContext.isInitialized) return
+        runCatching {
+            val file = newLogFile("checkpoint")
+            file.writeText(
+                buildString {
+                    appendLine("=== Airux Pocket AI Bench Checkpoint ===")
+                    appendLine("time: ${timestamp()}")
+                    appendLine("app: ${appVersion()}")
+                    appendLine("note: process may die during the next vision/native step")
+                    appendLine()
+                    appendLine(body.trim())
+                },
+            )
+            FileOutputStream(file, false).use { it.fd.sync() }
+            trimOldLogs()
+            breadcrumbSync("bench checkpoint saved ${file.name}")
+        }
+    }
+
     fun formatForDisplay(raw: String?): String =
-        raw?.trim()?.take(12000) ?: "No diagnostic log saved yet."
+        raw?.trim()?.take(24_000) ?: "No diagnostic log saved yet. Run a self-check or benchmark in Settings."
 
     private fun saveReport(
         kind: String,
@@ -205,14 +313,53 @@ object CrashReporter {
         if (!::appContext.isInitialized) return
         val report = buildReportText(kind, throwable, context)
         runCatching {
-            val file = newLogFile()
+            val file = newLogFile("report")
             file.writeText(report)
+            FileOutputStream(file, false).use { it.fd.sync() }
             trimOldLogs()
             if (showOnNextLaunch) {
                 appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                    .edit().putBoolean(KEY_PENDING, true).apply()
+                    .edit().putBoolean(KEY_PENDING, true).commit()
             }
             Log.e(TAG, report)
+        }
+    }
+
+    private fun persistKillSuspectReport(lastStep: String) {
+        val text = buildKillSuspectReport(lastStep) ?: return
+        runCatching {
+            val file = newLogFile("kill")
+            file.writeText(text)
+            FileOutputStream(file, false).use { it.fd.sync() }
+            trimOldLogs()
+            Log.e(TAG, "PROCESS_KILL report written: $lastStep")
+        }
+    }
+
+    private fun buildKillSuspectReport(lastStepOverride: String? = null): String? {
+        if (!::appContext.isInitialized) return null
+        val trail = trailFile().takeIf { it.exists() }?.readText()?.trim().orEmpty()
+        if (trail.isEmpty()) return null
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val last = lastStepOverride ?: lastMeaningfulBreadcrumb().orEmpty()
+        return buildString {
+            appendLine("=== Airux Pocket AI Diagnostic Report ===")
+            appendLine("kind: PROCESS_KILL_SUSPECTED")
+            appendLine("time: ${timestamp()}")
+            appendLine("app: ${appVersion()}")
+            appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL} API ${Build.VERSION.SDK_INT}")
+            appendLine("abi: ${Build.SUPPORTED_ABIS.joinToString()}")
+            appendLine("--- note ---")
+            appendLine("Process was killed without a Java stack (LMK / native SIGSEGV / SIGKILL).")
+            appendLine("Common during vision mmproj eval (Gemma 4B + image).")
+            appendLine("Export prefers this over a prior completed benchmark report.")
+            if (last.isNotEmpty()) {
+                appendLine("last_breadcrumb: $last")
+                val lastAt = prefs.getLong(KEY_LAST_BREADCRUMB_AT, 0L)
+                if (lastAt > 0L) appendLine("last_breadcrumb_at: ${timestamp(lastAt)}")
+            }
+            appendLine("--- breadcrumbs (last actions) ---")
+            appendLine(trail.takeLast(MAX_TRAIL_CHARS))
         }
     }
 
@@ -274,16 +421,32 @@ object CrashReporter {
 
     private fun trailFile(): File = File(logsDir(), "breadcrumb_trail.log")
 
-    private fun newLogFile(): File =
-        File(logsDir(), "report_${System.currentTimeMillis()}.txt")
+    private fun newLogFile(prefix: String): File =
+        File(logsDir(), "${prefix}_${System.currentTimeMillis()}.txt")
 
     private fun latestLogFile(): File? =
-        logsDir().listFiles { f -> f.name.startsWith("report_") }
-            ?.maxByOrNull { it.lastModified() }
+        logsDir().listFiles { f ->
+            f.isFile && (
+                f.name.startsWith("report_") ||
+                    f.name.startsWith("kill_") ||
+                    f.name.startsWith("checkpoint_")
+                )
+        }?.maxByOrNull { it.lastModified() }
+
+    private fun File.nameContainsKillOrFatal(): Boolean {
+        if (name.startsWith("kill_")) return true
+        val head = runCatching { readText().take(400) }.getOrNull().orEmpty()
+        return head.contains("PROCESS_KILL") || head.contains("FATAL_CRASH") || head.contains("NATIVE_CRASH")
+    }
 
     private fun trimOldLogs() {
-        val files = logsDir().listFiles { f -> f.name.startsWith("report_") }
-            ?.sortedByDescending { it.lastModified() } ?: return
+        val files = logsDir().listFiles { f ->
+            f.isFile && (
+                f.name.startsWith("report_") ||
+                    f.name.startsWith("kill_") ||
+                    f.name.startsWith("checkpoint_")
+                )
+        }?.sortedByDescending { it.lastModified() } ?: return
         files.drop(MAX_LOG_FILES).forEach { it.delete() }
     }
 
@@ -297,32 +460,6 @@ object CrashReporter {
             ?.substringAfter("BREADCRUMB ")
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-    }
-
-    private fun buildBreadcrumbOnlyReport(): String? {
-        if (!::appContext.isInitialized) return null
-        val trail = trailFile().takeIf { it.exists() }?.readText()?.trim().orEmpty()
-        if (trail.isEmpty()) return null
-        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val last = lastMeaningfulBreadcrumb().orEmpty()
-        return buildString {
-            appendLine("=== Airux Pocket AI Diagnostic Report ===")
-            appendLine("kind: NATIVE_CRASH_SUSPECTED")
-            appendLine("time: ${timestamp()}")
-            appendLine("app: ${appVersion()}")
-            appendLine("device: ${Build.MANUFACTURER} ${Build.MODEL} API ${Build.VERSION.SDK_INT}")
-            appendLine("abi: ${Build.SUPPORTED_ABIS.joinToString()}")
-            appendLine("--- note ---")
-            appendLine("Process was killed (likely native SIGSEGV in libllama_bro.so).")
-            appendLine("No Java stack trace — last known step below.")
-            if (last.isNotEmpty()) {
-                appendLine("last_breadcrumb: $last")
-                val lastAt = prefs.getLong(KEY_LAST_BREADCRUMB_AT, 0L)
-                if (lastAt > 0L) appendLine("last_breadcrumb_at: ${timestamp(lastAt)}")
-            }
-            appendLine("--- breadcrumbs (last actions) ---")
-            appendLine(trail.takeLast(MAX_TRAIL_CHARS))
-        }
     }
 
     private fun timestamp(): String =

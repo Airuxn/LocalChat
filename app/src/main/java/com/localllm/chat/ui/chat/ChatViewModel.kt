@@ -10,7 +10,12 @@ import com.localllm.chat.llm.ChatTurn
 import com.localllm.chat.llm.CodeContinuePrompt
 import com.localllm.chat.llm.CodingModeDetector
 import com.localllm.chat.llm.LlmErrorMessages
-import com.localllm.chat.onboarding.OnboardingModelMapper
+import com.localllm.chat.llm.IdentityResponseNormalizer
+import com.localllm.chat.llm.ImagePixelCodec
+import com.localllm.chat.llm.LanguagePrompt
+import com.localllm.chat.llm.MathResponseNormalizer
+import com.localllm.chat.llm.PromptProfile
+import com.localllm.chat.llm.VisionNoImageNormalizer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -35,6 +40,9 @@ class ChatViewModel(
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
     private val _isLoadingModel = MutableStateFlow(false)
     val isLoadingModel: StateFlow<Boolean> = _isLoadingModel.asStateFlow()
 
@@ -56,6 +64,13 @@ class ChatViewModel(
     val activeModelName: StateFlow<String> = container.modelRepository.observeInstalled()
         .map { models -> models.find { it.isActive }?.name ?: "No model" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "No model")
+
+    val canAttachPhoto: StateFlow<Boolean> = container.modelRepository.observeInstalled()
+        .map { models ->
+            val active = models.find { it.isActive } ?: return@map false
+            PromptProfile.resolveCatalogEntry(container.applicationContext, active)?.isVision == true
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _errorDialog = MutableStateFlow<String?>(null)
     val errorDialog: StateFlow<String?> = _errorDialog.asStateFlow()
@@ -80,10 +95,11 @@ class ChatViewModel(
     }
 
     fun stopGenerating() {
-        container.llmRuntime.abortGeneration()
+        container.llmRuntime.requestCancelAndAbort()
         generateJob?.cancel()
         _isGenerating.value = false
         _isLoadingModel.value = false
+        _isSearching.value = false
         _tokensPerSecond.value = null
     }
 
@@ -124,8 +140,9 @@ class ChatViewModel(
     val hasPendingPhoto: StateFlow<Boolean> = _hasPendingPhoto.asStateFlow()
 
     fun attachPhoto(bytes: ByteArray) {
-        pendingImageBytes = bytes
-        _hasPendingPhoto.value = true
+        // Decode WebP/HEIC/etc to PNG early so mtmd (stb_image) can ingest.
+        pendingImageBytes = ImagePixelCodec.toMtmdPng(bytes) ?: bytes
+        _hasPendingPhoto.value = pendingImageBytes != null
     }
 
     fun clearPendingPhoto() {
@@ -152,18 +169,19 @@ class ChatViewModel(
                 lastUserMessage = text
             }
             _isGenerating.value = true
-            _isLoadingModel.value = true
+            _isSearching.value = false
             _streamingText.value = ""
             _showContinueCode.value = false
             _tokensPerSecond.value = null
             val buffer = StringBuilder()
+            var lastThinking: String? = null
             var generationSpeed: Float? = null
             var settings = container.settingsRepository.settings.first()
             try {
                 settings = container.settingsRepository.settings.first()
                 val memories = container.memoryRepository.observeForPrompt().first()
                 val onboarding = container.onboardingRepository.state.first()
-                val langPrompt = com.localllm.chat.llm.LanguagePrompt.forLanguageCode(onboarding.language)
+                val langPrompt = LanguagePrompt.forLanguageCode(onboarding.language)
                 val systemPrompt = container.chatEngine.resolveSystemPrompt(
                     model = model,
                     mode = effectiveMode,
@@ -183,6 +201,10 @@ class ChatViewModel(
                 ).collect { chunk ->
                     buffer.append(chunk.text)
                     _streamingText.value = buffer.toString()
+                    if (chunk.thinkingSoFar != null) {
+                        lastThinking = chunk.thinkingSoFar
+                    }
+                    _isSearching.value = chunk.toolActive
                     chunk.stats?.let { stats ->
                         if (stats.tokensPerSecond > 0f) {
                             generationSpeed = stats.tokensPerSecond
@@ -190,19 +212,35 @@ class ChatViewModel(
                         }
                     }
                 }
-                val catalogId = com.localllm.chat.llm.PromptProfile
-                    .resolveCatalogEntry(container.applicationContext, model)?.id
-                val visible = com.localllm.chat.llm.IdentityResponseNormalizer.normalize(
+                val catalogId = PromptProfile.resolveCatalogEntry(container.applicationContext, model)?.id
+                val visible = VisionNoImageNormalizer.normalize(
                     catalogId = catalogId,
                     userMessage = text,
-                    response = buffer.toString().trim(),
+                    response = MathResponseNormalizer.normalize(
+                        catalogId = catalogId,
+                        userMessage = text,
+                        response = IdentityResponseNormalizer.normalize(
+                            catalogId = catalogId,
+                            userMessage = text,
+                            response = buffer.toString().trim(),
+                        ),
+                    ),
+                    hasPhotoAttachment = imageBytes != null,
                 )
                 if (visible.isNotBlank()) {
-                    container.chatRepository.addMessage(conversationId, "assistant", visible)
+                    container.chatRepository.addMessage(
+                        conversationId,
+                        "assistant",
+                        visible,
+                        thinking = lastThinking,
+                    )
                 }
                 generationSpeed?.let { recordSpeedSample(it) }
                 _showContinueCode.value = CodeContinuePrompt.shouldOfferContinue(visible)
                 clearPendingPhoto()
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                container.llmRuntime.onGenerationCancelled()
+                throw e
             } catch (e: Exception) {
                 container.llmRuntime.invalidateChatBinding()
                 val summary = LlmErrorMessages.forThrowable(e, model)
@@ -222,6 +260,7 @@ class ChatViewModel(
                 _streamingText.value = ""
                 _isGenerating.value = false
                 _isLoadingModel.value = false
+                _isSearching.value = false
                 _tokensPerSecond.value = null
             }
         }

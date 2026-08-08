@@ -72,9 +72,20 @@ class ModelRepository(
             }
             modelDao.deactivateAll()
             if (existing != null) {
+                modelDao.updateCatalogMetadata(
+                    existing.id,
+                    model.promptFormat,
+                    model.name,
+                    model.id,
+                )
                 modelDao.updateActive(existing.id, true)
                 onProgress(100, "Ready")
-                return@withContext existing.copy(isActive = true)
+                return@withContext existing.copy(
+                    isActive = true,
+                    promptFormat = model.promptFormat,
+                    name = model.name,
+                    catalogId = model.id,
+                )
             }
             val entity = ModelEntity(
                 name = model.name,
@@ -173,6 +184,7 @@ class ModelRepository(
         catalogEntry?.mmprojFileName?.let { mmprojName ->
             dir?.let { File(it, mmprojName).delete() }
         }
+        // Do not wipe other catalog mmproj files that may still be installed.
         modelDao.delete(model.id)
         if (wasActive) {
             modelDao.getAll().firstOrNull()?.let { next ->
@@ -192,6 +204,7 @@ class ModelRepository(
     /** Fix catalog metadata and legacy onboarding prompts after app or catalog updates. */
     suspend fun syncInstalledWithCatalog(): Boolean = withContext(Dispatchers.IO) {
         var changed = reconcileInstallState()
+        changed = cleanupOrphanMmprojFiles() || changed
         val catalog = ModelCatalog.all(context)
         for (model in modelDao.getAll()) {
             val fileName = File(model.filePath).name
@@ -246,6 +259,20 @@ class ModelRepository(
             }
         }
         changed
+    }
+
+    /** Remove mmproj files that are not referenced by the current catalog. */
+    private fun cleanupOrphanMmprojFiles(): Boolean {
+        val dir = File(context.filesDir, "models")
+        if (!dir.isDirectory) return false
+        val keep = ModelCatalog.all(context)
+            .mapNotNull { it.mmprojFileName }
+            .toSet()
+        var changed = false
+        dir.listFiles()?.filter { it.isFile && it.name.startsWith("mmproj-") }?.forEach { file ->
+            if (file.name !in keep && file.delete()) changed = true
+        }
+        return changed
     }
 }
 

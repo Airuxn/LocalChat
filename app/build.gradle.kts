@@ -14,8 +14,8 @@ android {
         applicationId = "com.localllm.chat"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -96,8 +96,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.mlkitObjectDetection)
-    implementation(libs.mlkitImageLabeling)
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")

@@ -44,6 +44,8 @@ interface LlamaSession : AutoCloseable {
 
     suspend fun setSystemPrompt(prompt: String)
     suspend fun addPrompt(prompt: String)
+    /** Ingest a user turn that includes an image for native VLM (requires mmproj). */
+    suspend fun addPromptWithImage(prompt: String, imageBytes: ByteArray) = addPrompt(prompt)
     fun generateFlow(): Flow<TokenGenerationResult>
     suspend fun clear()
     fun abort()

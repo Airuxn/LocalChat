@@ -22,7 +22,6 @@ class AppContainer(context: Context) {
         "localchat.db",
     )
         .addMigrations(*AppDatabaseMigrations.ALL)
-        .fallbackToDestructiveMigration()
         .build()
 
     val settingsRepository = SettingsRepository(appContext)

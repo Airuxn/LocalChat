@@ -78,12 +78,16 @@ class PromptFormatter(
     }
 
     fun formatGeneration(event: ChatEvent.UserEvent): String = buildString {
+        append(formatGenerationUser(event))
+        append(formatAssistantContinue(event.think))
+    }
+
+    /** User turn only (no assistant prefill) — used when attaching native image bytes. */
+    fun formatGenerationUser(event: ChatEvent.UserEvent): String = buildString {
         append(template.userPrefix)
         append(event.content.trim())
         appendThinkingDirective(event.think)
         append(template.endOfTurn)
-        append(template.assistantPrefix)
-        appendThinkingPrefill(event.think)
     }
 
     fun formatAssistantContinue(think: Boolean = false): String = buildString {

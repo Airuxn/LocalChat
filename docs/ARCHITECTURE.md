@@ -5,14 +5,14 @@
 | Module | Role |
 |--------|------|
 | `app` | Android UI, Room DB, downloads, prompt profiles, tool execution |
-| `llama-bro-sdk` | JNI bridge, chat session pipeline, streaming tag lexer, tool-call parsing |
+| `llama-bro-sdk` | JNI bridge (llama.cpp + mtmd), chat session pipeline, streaming tag lexer, tool-call parsing |
 
 ## Chat flow
 
-1. **ChatViewModel** — user input, optional photo bytes
+1. **ChatViewModel** — user input, optional photo bytes (vision models only)
 2. **ChatEngine** — system prompt (`PromptProfile` + memory + language), message augmentation
-3. **LlmRuntime** — loads GGUF, creates `LlamaChatSession` with native tools when `capabilities.json` allows
-4. **llama-bro-sdk** — streams tokens, parses tool/thinking tags, in-process tool loop
+3. **LlmRuntime** — loads GGUF (+ mmproj for vision), creates `LlamaChatSession` with native tools when `capabilities.json` allows
+4. **llama-bro-sdk** — streams tokens, parses tool/thinking tags, in-process tool loop; image turns via `mtmd`
 5. **NativeToolExecutor** — runs `web_search` via DuckDuckGo
 6. Response normalized and stored in Room
 
@@ -21,7 +21,7 @@
 `app/src/main/assets/capabilities.json` mirrors `scripts/prompt-benchmark/capabilities.json` (CI enforces sync).
 
 - **native_tools** — SDK `XmlToolFormats` + `NativeToolDefinitions`
-- **inject_tools** — app-side augmentation (ML Kit photo analysis in user message)
+- **vision_native** — GGUF + mmproj loaded through llama.cpp `mtmd` (pixels, not label inject)
 
 ## Prompt tuning
 
@@ -29,11 +29,12 @@ Per-model prompts in `PromptProfile.kt`. Benchmarks in `scripts/prompt-benchmark
 
 ## Native stack
 
-- Prebuilt `libllama_bro.so` in `app/src/main/jniLibs/arm64-v8a/`
+- Built from `llama-bro-sdk/src/main/cpp` (CMake + NDK): `libllama_bro.so`, `libllama.so`, `libmtmd.so`, `libggml*.so`
 - arm64 inference; x86_64 debug builds can run UI only
 - Standard models: rolling context window. Tool-capable models: clear-history decode layout.
 
 ## Testing
 
 - `./gradlew test` — catalog, prompts, capabilities
+- On-device benchmark — Settings → includes vision `count15` fixture with real pixels
 - Python benchmarks — against local GGUF weights (maintainer / optional CI smoke)

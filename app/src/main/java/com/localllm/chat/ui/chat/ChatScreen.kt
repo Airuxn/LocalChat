@@ -57,7 +57,9 @@ fun ChatScreen(
     averageTokensPerSecond: Float?,
     showContinueCode: Boolean,
     showThinking: Boolean,
+    isSearching: Boolean = false,
     hasPendingPhoto: Boolean = false,
+    canAttachPhoto: Boolean = false,
     snackbarMessage: String?,
     onClearSnackbar: () -> Unit,
     onBack: () -> Unit,
@@ -150,6 +152,16 @@ fun ChatScreen(
                     Text("Loading model into memory…")
                 }
             }
+            if (isSearching) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(end = 8.dp))
+                    Text("Searching…")
+                }
+            }
             if (averageTokensPerSecond != null && averageTokensPerSecond > 0f) {
                 val speedText = buildString {
                     append("Avg ${"%.1f".format(averageTokensPerSecond)} tok/s")
@@ -226,19 +238,21 @@ fun ChatScreen(
                 Modifier.fillMaxWidth().padding(8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
-                IconButton(
-                    onClick = onAttachPhoto,
-                    enabled = !isGenerating && !isLoadingModel,
-                ) {
-                    Icon(
-                        Icons.Default.Image,
-                        contentDescription = "Attach photo",
-                        tint = if (hasPendingPhoto) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                    )
+                if (canAttachPhoto) {
+                    IconButton(
+                        onClick = onAttachPhoto,
+                        enabled = !isGenerating && !isLoadingModel,
+                    ) {
+                        Icon(
+                            Icons.Default.Image,
+                            contentDescription = "Attach photo",
+                            tint = if (hasPendingPhoto) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
                 }
                 OutlinedTextField(
                     value = input,

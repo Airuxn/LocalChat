@@ -3,12 +3,15 @@ package com.suhel.llamabro.sdk.config
 import com.suhel.llamabro.sdk.chat.pipeline.TagDelimiter
 import com.suhel.llamabro.sdk.format.PromptFormat
 import com.suhel.llamabro.sdk.format.PromptFormats
+import com.suhel.llamabro.sdk.toolcall.XmlToolFormats
 
 data class ModelLoadConfig(
     val path: String,
     val useMMap: Boolean = true,
     val useMLock: Boolean = false,
     val threads: Int = 2,
+    /** Optional multimodal projector for native VLM (mmproj GGUF). */
+    val mmprojPath: String? = null,
 )
 
 data class InferenceConfig(
@@ -27,6 +30,8 @@ data class InferenceConfig(
     val minP: Float = 0.05f,
     val temperature: Float = 0.7f,
     val seed: Int = 0,
+    /** Kotlin-side generation budget (native sampler has no n_predict). */
+    val maxTokens: Int = 512,
 )
 
 /** Context overflow strategies — native ids: Halt=0, ClearHistory=1, RollingWindow=2. */
@@ -73,7 +78,11 @@ data class SessionConfig(
 object ModelProfiles {
     private val chatMl = ModelProfile(PromptFormats.CHAT_ML, defaultInference = InferenceConfig(1.05f, topP = 0.8f))
     val QWEN_2_5: ModelProfile = chatMl
-    val LLAMA_3_2: ModelProfile = ModelProfile(PromptFormats.LLAMA_3, defaultInference = InferenceConfig(topP = 0.9f, minP = 0.05f))
+    val LLAMA_3_2: ModelProfile = ModelProfile(
+        promptFormat = PromptFormats.LLAMA_3,
+        toolCall = XmlToolFormats.CAPABILITY,
+        defaultInference = InferenceConfig(topP = 0.9f, minP = 0.05f),
+    )
     val GEMMA: ModelProfile = ModelProfile(PromptFormats.GEMMA, defaultInference = InferenceConfig(topP = 0.9f, minP = 0f))
     val QWEN_3_5: ModelProfile = ModelProfile(
         promptFormat = PromptFormats.CHAT_ML,
@@ -113,23 +122,29 @@ fun sessionInferenceForV1(
     settingsTemp: Float,
     useToolInferenceParams: Boolean,
     isCoding: Boolean,
-): InferenceConfig = when {
-    useToolInferenceParams && isCoding -> InferenceConfig(
-        temperature = 0.2f,
-        penaltyLastN = 20,
-        presencePenalty = 0f,
-        topP = 0.9f,
-    )
-    useToolInferenceParams -> InferenceConfig(
-        temperature = settingsTemp,
-        penaltyLastN = 20,
-        presencePenalty = 1.5f,
-        topP = 0.9f,
-    )
-    else -> InferenceConfig(
-        temperature = settingsTemp,
-        penaltyLastN = 40,
-        presencePenalty = 0f,
-        topP = 0.9f,
-    )
+): InferenceConfig {
+    val maxTokens = if (isCoding) 1024 else 512
+    return when {
+        useToolInferenceParams && isCoding -> InferenceConfig(
+            temperature = 0.2f,
+            penaltyLastN = 20,
+            presencePenalty = 0f,
+            topP = 0.9f,
+            maxTokens = maxTokens,
+        )
+        useToolInferenceParams -> InferenceConfig(
+            temperature = settingsTemp,
+            penaltyLastN = 20,
+            presencePenalty = 1.5f,
+            topP = 0.9f,
+            maxTokens = maxTokens,
+        )
+        else -> InferenceConfig(
+            temperature = settingsTemp,
+            penaltyLastN = 40,
+            presencePenalty = 0f,
+            topP = 0.9f,
+            maxTokens = maxTokens,
+        )
+    }
 }

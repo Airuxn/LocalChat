@@ -27,17 +27,14 @@ cp -f "$APK" "$BACKUP_APK"
 echo "Local backup: $BACKUP_APK"
 
 NOTES="$(cat <<EOF
-## Pocket AI ${TAG} — Initial release
+## Pocket AI ${TAG}
 
-First public release for **Android arm64** (Android 8+).
+Vision LMK diagnostics + smaller images for **Android arm64** (Android 8+).
 
 ### Highlights
-- **Airux Pocket AI** — private on-device LLM chat (llama.cpp JNI)
-- 9-model catalog: Qwen3, Llama 3.2, Gemma, Dolphin, SmolVLM
-- Native \`web_search\` on Qwen3 1.7B and Llama 3.2 3B
-- Unified chat with automatic coding detection
-- Photo attach with on-device ML Kit analysis
-- HTTPS-only network policy · backup disabled for chat data
+- Process-kill export: mid-vision LMK no longer hides behind the old bench report
+- Bench checkpoint before \`with_image_count\`
+- Smaller VLM images (384px / 256px Gemma) to reduce kills mid-eval
 
 ### Install
 Download \`app-release.apk\` below and open on your device.

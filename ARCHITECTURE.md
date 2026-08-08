@@ -7,7 +7,7 @@ UI (Compose) → ChatViewModel → LlmEngine (llama-bro-sdk / JNI)
                     ↓
               Room (chats, messages)
                     ↓
-         Optional: ML Kit (photo) · DuckDuckGo (web_search tools)
+         Optional: DuckDuckGo (web_search tools) · native mmproj (vision)
 ```
 
 ## Modules

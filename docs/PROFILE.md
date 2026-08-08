@@ -11,7 +11,7 @@
 
 ## Interview pitch (30 seconds)
 
-> "I built Pocket AI — offline LLM chat on Android with a custom llama.cpp JNI SDK. Nine models, per-model prompt engineering, ML Kit photo inject, and benchmark-validated native web search. Standard Gradle/Compose architecture with CI and signed releases."
+> "I built Pocket AI — offline LLM chat on Android with a custom llama.cpp JNI SDK. Nine models, per-model prompt engineering, native VLM (mmproj), and benchmark-validated native web search. Standard Gradle/Compose architecture with CI and signed releases."
 
 ## What strong profiles show
 

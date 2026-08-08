@@ -15,6 +15,7 @@ class ModelCapabilitiesTest {
     @Test
     fun qwenAndLlamaHaveWebSearch() {
         val ctx = RuntimeEnvironment.getApplication()
+        assertTrue(ModelCapabilities.nativeToolsFor(ctx, "llama3.2-1b-q4").contains("web_search"))
         assertTrue(ModelCapabilities.nativeToolsFor(ctx, "qwen3-1.7b-q4").contains("web_search"))
         assertTrue(ModelCapabilities.nativeToolsFor(ctx, "llama3.2-3b-q4").contains("web_search"))
     }

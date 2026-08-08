@@ -37,6 +37,7 @@ class LlamaEngineImpl(
             useMMap = cfg.useMMap,
             useMLock = cfg.useMLock,
             threads = cfg.threads,
+            mmprojPath = cfg.mmprojPath,
         )
         enginePtr = try {
             if (listener != null) Jni.createWithProgress(params, listener)
@@ -60,6 +61,7 @@ class LlamaEngineImpl(
         @JvmField val useMMap: Boolean,
         @JvmField val useMLock: Boolean,
         @JvmField val threads: Int,
+        @JvmField val mmprojPath: String? = null,
     )
 
     object Jni {
@@ -113,7 +115,7 @@ class LlamaSessionCore(
             profile = loadableModel.profile,
             toolCaller = toolCaller,
         )
-        chat.initialize(emptyList())
+        // Caller (LlmRuntime) calls initialize(toolDefs) once — avoid empty double-init.
         return chat
     }
 
@@ -123,6 +125,10 @@ class LlamaSessionCore(
 
     override suspend fun addPrompt(prompt: String) = withLock {
         LlamaSessionImpl.Jni.addUserPrompt(sessionPtr, prompt)
+    }
+
+    override suspend fun addPromptWithImage(prompt: String, imageBytes: ByteArray) = withLock {
+        LlamaSessionImpl.Jni.addUserPromptWithImage(sessionPtr, prompt, imageBytes)
     }
 
     override fun generateFlow(): Flow<TokenGenerationResult> = channelFlow {

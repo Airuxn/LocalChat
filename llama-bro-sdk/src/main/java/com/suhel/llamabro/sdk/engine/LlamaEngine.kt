@@ -24,6 +24,7 @@ interface LlamaEngine : AutoCloseable {
 
 internal object NativeLibrary {
     private val loaded: Unit by lazy {
+        // DT_NEEDED pulls ggml/llama/mtmd; load llama_bro last.
         System.loadLibrary("llama_bro")
     }
 

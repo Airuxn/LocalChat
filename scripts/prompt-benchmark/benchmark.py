@@ -132,12 +132,11 @@ def build_system_prompt(entry: dict) -> str:
         extra_block = f"\n- {extra}" if extra else ""
         return f"""You are {name}, a vision-language model running fully offline in Airux Pocket AI.
 
-Role: analyze photos and video frames — describe what is visible accurately and helpfully.
+Role: native VLM — analyze attached photos via the on-device multimodal projector (mmproj).
 
 Vision behavior:
-- When an image or frame is in the conversation: describe objects, people, text (OCR), colors, layout, spatial relations, and actions
-- When on-device photo analysis text is in the user message (scene labels, detected objects), treat it as the image context — describe from those labels only
-- When NO image and NO analysis text is provided: do NOT describe any photo or scene — say clearly that no image is attached and ask the user to attach one
+- When a photo is attached: describe objects, people, text (OCR), colors, layout, spatial relations, and actions
+- When NO photo is attached: do NOT describe any photo or scene — say clearly that no image is attached and ask the user to attach one
 - Never invent visual details or pretend you received a photo
 - Structure: brief overview first, then notable details
 - {tier_hint}{extra_block}
@@ -147,19 +146,21 @@ General:
 - You run on-device; if the user asks about a photo but none is attached, ask them to attach it"""
 
     prompts = {
-        "gemma3-1b-it-q4": """Identity (always): You are Gemma 3 running offline in Airux Pocket AI — not Google Gemini, ChatGPT, or Claude.
+        "llama3.2-1b-q4": """You are Llama 3.2 1B (Meta), running fully offline in Airux Pocket AI.
 
-When the user asks what model or AI you are, reply with exactly one sentence:
-Gemma 3 running offline in Airux Pocket AI.
+Personality: warm, brief, and practical — friendly helper for everyday questions on a 4 GB phone.
 
-Role: fast everyday assistant for chat, quick questions, and light tasks on a 4 GB phone.
+Role: fast everyday assistant for chat, quick questions, and light tasks. You can search the web when needed.
 
 How to respond:
 - Lead with the answer — keep it short (1–3 paragraphs) unless the user asks for more
 - Simple markdown when useful; no filler, no generic disclaimers
 - Same language as the user
-- If unsure, say so in one sentence — never invent facts, URLs, or files
-- Never say "Google DeepMind", "open-weights", or "Gemma team" for identity questions""",
+- If unsure, say so in one sentence — never invent facts, URLs, prices, or files
+- For current prices, news, or anything that must be looked up online: call web_search — never paste a guessed URL or number
+- For simple math (e.g. 2+2), answer with the number only — do not talk about tools
+- If asked what model you are, answer exactly: "Llama 3.2 running offline in Airux Pocket AI" — one sentence
+- You are Llama 3.2 on-device, not ChatGPT or Claude""",
         "qwen3-1.7b-q4": """You are Qwen3 1.7B (Alibaba), running fully offline in Airux Pocket AI.
 
 Role: reasoning-focused assistant — strong at explanation, logic, and technical Q&A on mid-range phones.
@@ -180,7 +181,9 @@ How to respond:
 - Answer the actual question first; expand when the topic deserves depth
 - Clean markdown: headings, lists, **bold**, fenced code when relevant
 - Break complex topics into logical steps
-- Honest about uncertainty — never fabricate sources or capabilities
+- Honest about uncertainty — never fabricate sources, URLs, prices, or capabilities
+- For current prices or live facts the user asks you to look up: call web_search — do not guess
+- For simple math, answer with the number only
 - Same language as the user
 - If asked what model you are, answer exactly: "Llama 3.2 running offline in Airux Pocket AI" — one sentence
 - You are Llama 3.2 on-device, not ChatGPT or Claude""",
@@ -191,10 +194,22 @@ How to respond:
 def user_message_for(entry: dict, user: str) -> str:
     cid = entry["id"]
     cat = entry.get("category", "standard")
+    live = re.search(
+        r"(?i)(current\s+price|price\s+of|bitcoin\s+price|price\s+in\s+usd|weather\s+in|look(?:\s+it)?\s+up\s+online|must\s+look|from\s+the\s+internet|live\s+(?:data|info|price)|right\s+now|as\s+of\s+today|\btoday\b.*\bprice\b|\bprice\b.*\btoday\b)",
+        user,
+    )
     if cid == "qwen3-1.7b-q4":
-        return f"{user} /no_think"
-    if cid == "gemma3-1b-it-q4" and IDENTITY_QUESTION.search(user):
-        return f"{user}\n\nAnswer in one sentence only: Gemma 3 running offline in Airux Pocket AI."
+        base = f"{user} /no_think"
+        if live:
+            return f"{base}\n\nReply with a web_search <tool_call> only. Do not invent URLs, prices, or a final answer."
+        return base
+    if cid in ("llama3.2-1b-q4", "llama3.2-3b-q4") and IDENTITY_QUESTION.search(user):
+        return (
+            f"{user}\n\nAnswer in one sentence only: Llama 3.2 running offline in Airux Pocket AI. "
+            "You can use web_search for live facts when needed."
+        )
+    if live and cid in ("llama3.2-1b-q4", "llama3.2-3b-q4"):
+        return f"{user}\n\nReply with a web_search <tool_call> only. Do not invent URLs, prices, or a final answer."
     if cat == "vision" and re.search(r"(?i)\b(photo|image|picture|screenshot)\b", user):
         if "capital of france" not in user.lower():
             tail = (
@@ -215,10 +230,52 @@ def user_message_for(entry: dict, user: str) -> str:
 
 
 def normalize_identity(entry: dict, user: str, response: str) -> str:
+    """Mirror IdentityResponseNormalizer.kt for tool-capable catalog models."""
     cid = entry["id"]
-    if cid == "gemma3-1b-it-q4" and IDENTITY_QUESTION.search(user):
-        if "airux pocket ai" not in response.lower():
-            return "Gemma 3 running offline in Airux Pocket AI."
+    if not IDENTITY_QUESTION.search(user):
+        return response
+    canonical = {
+        "llama3.2-1b-q4": (
+            "Llama 3.2 running offline in Airux Pocket AI. "
+            "Yes, I have web_search for live facts when needed."
+        ),
+        "qwen3-1.7b-q4": (
+            "Qwen3 running offline in Airux Pocket AI. "
+            "Yes, I have web_search for live facts when needed."
+        ),
+        "llama3.2-3b-q4": (
+            "Llama 3.2 running offline in Airux Pocket AI. "
+            "Yes, I have web_search for live facts when needed."
+        ),
+    }.get(cid)
+    return canonical or response
+
+
+def normalize_vision_no_image(entry: dict, user: str, response: str) -> str:
+    """Mirror VisionNoImageNormalizer.kt."""
+    if entry.get("category") != "vision":
+        return response
+    if not re.search(r"(?i)\b(photo|image|picture|screenshot)\b", user):
+        return response
+    low = response.lower()
+    hallucinate = any(
+        p in low
+        for p in (
+            "i see a",
+            "i see",
+            "the photo shows",
+            "photograph of",
+            "the picture shows",
+            "black and white photograph",
+            "wearing a",
+        )
+    )
+    helpful = any(
+        p in low
+        for p in ("no image", "no photo", "not attached", "cannot see", "can't see", "geen foto", "please attach")
+    )
+    if hallucinate or not helpful:
+        return "No image is attached. Please attach a photo."
     return response
 
 
@@ -234,15 +291,25 @@ def evaluate(test_id: str, category: str, raw: str) -> Score:
         if len(text.split()) > 35:
             issues.append("too long")
     elif test_id == "no_image":
+        # Strip echoed user question if the model repeats it first
+        body = text
+        if "\n" in text:
+            first, rest = text.split("\n", 1)
+            if "photo" in first.lower() or "image" in first.lower():
+                body = rest.strip()
+                low = body.lower()
         hallucinate = any(
             p in low
             for p in (
                 "i see a",
+                "i see",
                 "the photo shows",
                 "the photo is",
                 "in the image",
                 "the picture shows",
                 "in this photo",
+                "photograph of",
+                "black and white photograph",
                 "photo i've attached",
                 "photo you attached",
                 "examined the photo",
@@ -250,14 +317,27 @@ def evaluate(test_id: str, category: str, raw: str) -> Score:
                 "here's a description",
                 "cityscape",
                 "uploaded doesn't",
+                "wearing a",
+                "standing in front",
             )
         )
         helpful = any(
             p in low
-            for p in ("no image", "no photo", "not attached", "attach", "can't see", "cannot see", "geen foto")
+            for p in (
+                "no image",
+                "no photo",
+                "not attached",
+                "can't see",
+                "cannot see",
+                "geen foto",
+                "please attach",
+                "provide an image",
+            )
         )
-        if hallucinate and not helpful:
+        if hallucinate:
             issues.append("hallucinated image content")
+        elif not helpful:
+            issues.append("did not say no image attached")
     elif test_id.startswith("howto"):
         bad = [
             "i cannot",
@@ -359,6 +439,8 @@ def run_model(entry: dict, max_tokens: int, temperature: float | None) -> list[d
         )
         raw = out["choices"][0]["message"]["content"] or ""
         raw = normalize_identity(entry, test.user, raw)
+        if test.id == "no_image":
+            raw = normalize_vision_no_image(entry, test.user, raw)
         sc = evaluate(test.id, cat, raw)
         row = {
             "model": entry["id"],

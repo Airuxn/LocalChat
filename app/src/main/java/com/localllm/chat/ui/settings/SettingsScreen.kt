@@ -9,17 +9,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.localllm.chat.data.repo.SettingsState
@@ -29,14 +30,18 @@ import com.localllm.chat.data.repo.SettingsState
 fun SettingsScreen(
     settings: SettingsState,
     onBack: () -> Unit,
-    onTemperature: (Float) -> Unit,
-    onContextSize: (Int) -> Unit,
-    onMaxTokens: (Int) -> Unit,
     onSystemPrompt: (String) -> Unit,
     onMemoryEnabled: (Boolean) -> Unit,
     onShowThinking: (Boolean) -> Unit,
     onDarkTheme: (Boolean?) -> Unit,
     onOpenMemory: () -> Unit,
+    benchRunning: Boolean = false,
+    benchProgress: String = "",
+    benchStatus: String? = null,
+    onClearBenchStatus: () -> Unit = {},
+    onRunSelfCheck: () -> Unit,
+    onRunFullBenchmark: () -> Unit,
+    onRunActiveBenchmark: () -> Unit,
     onViewDiagnostics: () -> Unit,
     onShareDiagnostics: () -> Unit,
     onCopyDiagnostics: () -> Unit,
@@ -60,27 +65,13 @@ fun SettingsScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
-            SectionTitle("Generation")
-            Text("Temperature: ${"%.2f".format(settings.temperature)}")
-            Slider(value = settings.temperature, onValueChange = onTemperature, valueRange = 0f..2f)
-            Text("Context size: ${settings.contextSize}")
-            Slider(
-                value = settings.contextSize.toFloat(),
-                onValueChange = { onContextSize(it.toInt()) },
-                valueRange = 1024f..8192f,
-                steps = 13,
-            )
-            Text("Minimum context is 6144 tokens (same as v1).")
-            Text("Max tokens: ${settings.maxTokens}")
-            Slider(
-                value = settings.maxTokens.toFloat(),
-                onValueChange = { onMaxTokens(it.toInt()) },
-                valueRange = 128f..4096f,
-                steps = 15,
-            )
-
             SectionTitle("Appearance & reasoning")
             RowSwitch("Show thinking", settings.showThinking, onShowThinking)
+            Text(
+                "Off by default. When on, shows model reasoning blocks when available.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Text("Dark theme", modifier = Modifier.padding(top = 8.dp))
             ThemeRow(settings.darkTheme, onDarkTheme)
 
@@ -103,24 +94,86 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            SectionTitle("Diagnostics")
+            SectionTitle("Test & benchmark")
             Text(
-                "If chat crashes, open the log here and tap Share to send it (e.g. paste in GitHub issue).",
+                "Runs the same kind of checks we use in development: offline tool/catalog self-check, " +
+                    "then live chats (identity, soft weather search, math, casual) on installed models via the real app engine.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Button(onClick = onViewDiagnostics, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("View last error / crash log")
+            if (benchRunning) {
+                androidx.compose.foundation.layout.Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(Modifier.padding(end = 12.dp))
+                    Text(benchProgress.ifBlank { "Running…" })
+                }
             }
-            Button(onClick = onShareDiagnostics, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("Share diagnostic log")
+            Button(
+                onClick = onRunSelfCheck,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("Quick self-check (offline)")
             }
-            Button(onClick = onCopyDiagnostics, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Text("Copy log to clipboard")
+            Button(
+                onClick = onRunActiveBenchmark,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("Benchmark active model (live)")
+            }
+            Button(
+                onClick = onRunFullBenchmark,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("Benchmark ALL installed models (live)")
+            }
+            if (benchStatus != null) {
+                Text(
+                    benchStatus,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+                Button(onClick = onClearBenchStatus, enabled = !benchRunning) {
+                    Text("Dismiss status")
+                }
+            }
+
+            SectionTitle("Export log")
+            Text(
+                "After a benchmark or crash, export the full report + breadcrumb trail.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                onClick = onViewDiagnostics,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("View last benchmark / error log")
+            }
+            Button(
+                onClick = onShareDiagnostics,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("Share full diagnostic log")
+            }
+            Button(
+                onClick = onCopyDiagnostics,
+                enabled = !benchRunning,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            ) {
+                Text("Copy full log to clipboard")
             }
 
             Text(
-                "Chat inference runs on-device. Photo attach uses on-device ML Kit analysis.",
+                "Live benchmarks load each model into memory and can take several minutes on phone. " +
+                    "Keep the screen on; do not switch models mid-run.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 24.dp, bottom = 16.dp),

@@ -29,6 +29,13 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install NDK + CMake
+        run: |
+          sdkmanager --install "ndk;27.0.12077973" "cmake;3.22.1"
+
+      - name: Fetch llama.cpp
+        run: bash scripts/fetch-llama-cpp.sh
+
       - name: Prepare signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.LOCALCHAT_KEYSTORE_BASE64 }}
