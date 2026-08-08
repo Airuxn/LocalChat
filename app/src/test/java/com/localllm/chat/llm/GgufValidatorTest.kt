@@ -82,7 +82,8 @@ class GgufValidatorTest {
     fun rejectsTooSmallForMinBytes() {
         val temp = File.createTempFile("valid", ".gguf")
         val magic = byteArrayOf(0x47, 0x47, 0x55, 0x46) // GGUF
-        temp.writeBytes(magic + ByteArray(512) { 0 })
+        // 4 + 1024 = 1028 bytes: > 1024 threshold but < 2048 expectedMinBytes.
+        temp.writeBytes(magic + ByteArray(1024) { 0 })
         try {
             try {
                 GgufValidator.validate(temp.absolutePath, expectedMinBytes = 2048)
