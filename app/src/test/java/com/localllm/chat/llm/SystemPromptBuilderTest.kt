@@ -7,7 +7,7 @@ import org.junit.Test
 class SystemPromptBuilderTest {
     @Test
     fun chatPromptContainsIdentity() {
-        val prompt = SystemPromptBuilder.forModel("Llama 3.2", ChatMode.CHAT)
+        val prompt = SystemPromptBuilder.forModel("llama-3.2-1b", ChatMode.CHAT)
         assertTrue(prompt.contains("Llama 3.2"))
         assertTrue(prompt.contains("Airux Pocket AI"))
         assertTrue(prompt.contains("running offline"))
