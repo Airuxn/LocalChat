@@ -47,7 +47,8 @@ class GgufValidatorTest {
     @Test
     fun rejectsHtmlFile() {
         val temp = File.createTempFile("html", ".gguf")
-        temp.writeText("<html><body>not a model</body></html>")
+        // Make it large enough to pass the size check, then fail the magic check.
+        temp.writeText("<html><body>not a model " + "x".repeat(1200) + "</body></html>")
         try {
             try {
                 GgufValidator.validate(temp.absolutePath)

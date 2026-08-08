@@ -10,7 +10,7 @@ class SystemPromptBuilderTest {
         val prompt = SystemPromptBuilder.forModel("Llama 3.2", ChatMode.CHAT)
         assertTrue(prompt.contains("Llama 3.2"))
         assertTrue(prompt.contains("Airux Pocket AI"))
-        assertTrue(prompt.contains("running locally"))
+        assertTrue(prompt.contains("running offline"))
     }
 
     @Test
