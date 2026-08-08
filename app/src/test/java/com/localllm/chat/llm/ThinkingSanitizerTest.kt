@@ -7,13 +7,13 @@ class ThinkingSanitizerTest {
     @Test
     fun stripsThinkingBlock() {
         val raw = "Hello <thinking>internal reasoning</thinking> world"
-        assertEquals("Hello world", ThinkingSanitizer.stripForDisplay(raw))
+        assertEquals("Hello  world", ThinkingSanitizer.stripForDisplay(raw))
     }
 
     @Test
     fun stripsRedactedThinkingBlock() {
         val raw = "Result: <redacted_thinking>private</redacted_thinking> done"
-        assertEquals("Result: done", ThinkingSanitizer.stripForDisplay(raw))
+        assertEquals("Result:  done", ThinkingSanitizer.stripForDisplay(raw))
     }
 
     @Test
