@@ -5,6 +5,8 @@
 **Package:** `com.localllm.chat` · **Latest:** [v1.0.0](https://github.com/Airuxn/Pocket-AI/releases/latest)
 
 [![CI](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/Airuxn/Pocket-AI/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/Airuxn/Pocket-AI/branch/main/graph/badge.svg)](https://codecov.io/gh/Airuxn/Pocket-AI)
+[![License](https://img.shields.io/github/license/Airuxn/Pocket-AI)](LICENSE)
 
 **Quality:** CI (unit tests, lint, debug build) · CodeQL · Dependabot · manual [Release workflow](.github/workflows/release.yml) for APK · Vercel `ignoreCommand` waits for CI + CodeQL if hosted on Vercel
 

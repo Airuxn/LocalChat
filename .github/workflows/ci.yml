@@ -42,6 +42,17 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test --build-cache --no-daemon
 
+      - name: Generate coverage report
+        run: ./gradlew :app:jacocoTestReport --no-daemon
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          fail_ci_if_error: false
+          verbose: true
+
       - name: Lint app and SDK module
         run: ./gradlew lint :llama-bro-sdk:lint --no-daemon
 

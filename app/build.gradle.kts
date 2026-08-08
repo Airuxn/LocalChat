@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
+    jacoco
 }
 
 android {
@@ -35,6 +36,7 @@ android {
     buildTypes {
         debug {
             // Lets CI / x86 emulators exercise startup (inference still arm64-only in jniLibs).
+            enableUnitTestCoverage = true
             ndk {
                 abiFilters += listOf("arm64-v8a", "x86_64")
             }
@@ -101,4 +103,26 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.14.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+}
+
+// JaCoCo coverage report for Codecov
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    classDirectories.setFrom(
+        fileTree(project.layout.buildDirectory.dir("tmp/kotlin-classes/debug").get().asFile) {
+            exclude("**/R.class", "**/R$*.class", "**/BuildConfig.class")
+        }
+    )
+    sourceDirectories.setFrom(
+        files("src/main/java", "src/main/kotlin")
+    )
+    executionData.setFrom(
+        fileTree(project.layout.buildDirectory.dir("jacoco").get().asFile) {
+            include("testDebugUnitTest.exec")
+        }
+    )
 }
