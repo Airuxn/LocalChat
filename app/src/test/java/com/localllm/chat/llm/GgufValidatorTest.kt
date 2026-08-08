@@ -1,0 +1,62 @@
+package com.localllm.chat.llm
+
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Test
+import java.io.File
+
+class GgufValidatorTest {
+    @Test
+    fun rejectsMissingFile() {
+        try {
+            GgufValidator.validate("/tmp/nonexistent-pocket-ai-test.gguf")
+            fail("Expected exception for missing file")
+        } catch (e: IllegalArgumentException) {
+            assertTrue(e.message!!.contains("not found"))
+        }
+    }
+
+    @Test
+    fun rejectsTooSmallFile() {
+        val temp = File.createTempFile("tiny", ".gguf")
+        temp.writeBytes("x".toByteArray())
+        try {
+            try {
+                GgufValidator.validate(temp.absolutePath)
+                fail("Expected exception for tiny file")
+            } catch (e: IllegalArgumentException) {
+                assertTrue(e.message!!.contains("too small"))
+            }
+        } finally {
+            temp.delete()
+        }
+    }
+
+    @Test
+    fun acceptsValidGguf() {
+        val temp = File.createTempFile("valid", ".gguf")
+        val magic = byteArrayOf(0x47, 0x47, 0x55, 0x46) // GGUF
+        temp.writeBytes(magic + ByteArray(2048) { 0 })
+        try {
+            GgufValidator.validate(temp.absolutePath)
+        } finally {
+            temp.delete()
+        }
+    }
+
+    @Test
+    fun rejectsHtmlFile() {
+        val temp = File.createTempFile("html", ".gguf")
+        temp.writeText("<html><body>not a model</body></html>")
+        try {
+            try {
+                GgufValidator.validate(temp.absolutePath)
+                fail("Expected exception for HTML file")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message!!.contains("Not a valid GGUF"))
+            }
+        } finally {
+            temp.delete()
+        }
+    }
+}
