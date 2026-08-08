@@ -60,4 +60,38 @@ class GgufValidatorTest {
             temp.delete()
         }
     }
+
+    @Test
+    fun rejectsExactSizeMismatch() {
+        val temp = File.createTempFile("valid", ".gguf")
+        val magic = byteArrayOf(0x47, 0x47, 0x55, 0x46) // GGUF
+        temp.writeBytes(magic + ByteArray(2048) { 0 })
+        try {
+            try {
+                GgufValidator.validate(temp.absolutePath, expectedExactBytes = 1234)
+                fail("Expected exception for size mismatch")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message!!.contains("size mismatch"))
+            }
+        } finally {
+            temp.delete()
+        }
+    }
+
+    @Test
+    fun rejectsTooSmallForMinBytes() {
+        val temp = File.createTempFile("valid", ".gguf")
+        val magic = byteArrayOf(0x47, 0x47, 0x55, 0x46) // GGUF
+        temp.writeBytes(magic + ByteArray(512) { 0 })
+        try {
+            try {
+                GgufValidator.validate(temp.absolutePath, expectedMinBytes = 2048)
+                fail("Expected exception for incomplete file")
+            } catch (e: IllegalStateException) {
+                assertTrue(e.message!!.contains("incomplete"))
+            }
+        } finally {
+            temp.delete()
+        }
+    }
 }
